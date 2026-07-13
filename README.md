@@ -40,7 +40,19 @@ uv tool install "mempalace>=3.3.5"
 mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
 ```
 
-2. Clone this repository and point `~/.config/mimocode/mimocode.json` (or a project's `.mimocode/mimocode.json`) at the checkout, using the absolute path as the plugin name:
+2. Add the plugin to `~/.config/mimocode/mimocode.json` (or a project's `.mimocode/mimocode.json`):
+
+```json
+{
+  "plugin": [
+    ["mimocode-mempalace", { "palace": "~/mimo-memory" }]
+  ]
+}
+```
+
+MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start. Options live right next to the plugin name, in the same file. No side-channel config files.
+
+To hack on the plugin instead, a checkout works too — use the absolute repo path as the plugin name:
 
 ```json
 {
@@ -49,8 +61,6 @@ mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
   ]
 }
 ```
-
-Options live right next to the plugin name, in the same file. No side-channel config files. (MiMoCode installs plugins named by bare package name from the public npm registry; this package is not published there yet, so use the checkout path.)
 
 3. Restart MiMoCode. The very first start can take a while as MiMoCode sets the plugin up; after that the plugin is ready within a few seconds of startup.
 
