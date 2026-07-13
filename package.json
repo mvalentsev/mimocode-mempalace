@@ -10,6 +10,10 @@
     "type": "git",
     "url": "git+https://github.com/mvalentsev/mimocode-mempalace.git"
   },
+  "homepage": "https://github.com/mvalentsev/mimocode-mempalace#readme",
+  "bugs": {
+    "url": "https://github.com/mvalentsev/mimocode-mempalace/issues"
+  },
   "keywords": [
     "mimocode",
     "mempalace",
