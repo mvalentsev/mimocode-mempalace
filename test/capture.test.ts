@@ -95,7 +95,10 @@ describe("createCapture.onSessionPost", () => {
     const content = await readFile(path.join(s.capture.dir, files[0]!), "utf8")
     expect(content).toContain("the question")
     expect(content).toContain("the answer")
-    expect(s.spy.calls).toEqual(["schedule"])
+    // The startup sweep may race the first write and add a second schedule;
+    // the miner coalesces, so the contract is "at least one".
+    expect(s.spy.calls.length).toBeGreaterThanOrEqual(1)
+    expect(s.spy.calls.every((c) => c === "schedule")).toBe(true)
   })
 
   test.each([

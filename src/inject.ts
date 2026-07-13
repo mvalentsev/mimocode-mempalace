@@ -45,13 +45,22 @@ export function createInjector(o: Options, log: Logger): Injector {
     }
   })()
 
+  let notedEmptyPalace = false
+
   const searchBlock = async (query: string) => {
     const hit = cache.get(query)
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.block
 
     const res = await run(o.bin, searchArgs(o, query), o.searchTimeoutMs)
     if (!res.ok) {
-      log(`search failed (code=${res.code} timedOut=${res.timedOut}): ${res.stderr.slice(0, 300)}`)
+      // A palace nothing has been mined into yet is a normal state, not noise.
+      if ((res.stdout + res.stderr).includes("has no chroma.sqlite3")) {
+        if (!notedEmptyPalace) log("palace is empty until the first exchange is mined; search stays off")
+        notedEmptyPalace = true
+        return ""
+      }
+      const detail = (res.stderr.trim() || res.stdout.trim()).slice(0, 300)
+      log(`search failed (code=${res.code} timedOut=${res.timedOut}): ${detail}`)
       return ""
     }
     const block = extractResults(res.stdout, o.injectMaxChars)
@@ -89,7 +98,9 @@ export function createInjector(o: Options, log: Logger): Injector {
       }
 
       if (!sections.length) return
-      output.system.push(`# Long-term memory (MemPalace)\n\n${sections.join("\n\n")}`)
+      const block = `# Long-term memory (MemPalace)\n\n${sections.join("\n\n")}`
+      output.system.push(block)
+      log(`injected ${block.length} chars into system (session ${sessionID})`)
     },
   }
 }

@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises"
+import { mkdir, readdir } from "node:fs/promises"
 import path from "path"
 import type { Options } from "./config.ts"
 import type { Logger } from "./log.ts"
@@ -83,15 +83,31 @@ export function createCapture(o: Options, miner: Miner, log: Logger): Capture {
       return false
     },
   )
+  // A short-lived session can exit before the debounced mine fires, leaving
+  // the newest exchange unmined; sweep leftovers on the next startup.
+  ready.then(async (ok) => {
+    if (!ok) return
+    const leftovers = await readdir(dir).catch(() => [])
+    if (leftovers.some((f) => f.endsWith(".jsonl"))) {
+      log(`startup: ${leftovers.length} exchange file(s) pending, scheduling mine`)
+      miner.schedule()
+    }
+  })
   return {
     dir,
     onSessionPost: async (input) => {
-      if (!o.agents.includes(input.agentID)) return
+      if (!o.agents.includes(input.agentID)) {
+        log(`skip ${input.sessionID}: agent "${input.agentID}" not in [${o.agents.join(", ")}]`)
+        return
+      }
       if (input.outcome !== "completed") return
       const assistant = input.finalText?.trim()
       if (!assistant) return
       const user = extractLastUserText(input.trajectory ?? [])
-      if (!user) return
+      if (!user) {
+        log(`skip ${input.sessionID}: no non-synthetic user turn in trajectory`)
+        return
+      }
       if (!(await ready)) return
       const file = path.join(dir, exchangeFilename(input.sessionID, input.assistantMessageID))
       await Bun.write(file, buildExchangeJsonl(user, assistant))

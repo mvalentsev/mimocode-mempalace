@@ -45,7 +45,7 @@ describe("resolveOptions", () => {
       "/p/x",
     )
     expect(o.injectResults).toBe(5)
-    expect(o.searchTimeoutMs).toBe(6000)
+    expect(o.searchTimeoutMs).toBe(10000)
     expect(o.capture).toBe(true)
     expect(o.agents).toEqual(["main"])
   })

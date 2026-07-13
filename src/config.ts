@@ -77,7 +77,7 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
     identityFile,
     injectResults: num(o.injectResults, 5),
     injectMaxChars: num(o.injectMaxChars, 6000),
-    searchTimeoutMs: num(o.searchTimeoutMs, 6000),
+    searchTimeoutMs: num(o.searchTimeoutMs, 10000),
     mineDebounceMs: num(o.mineDebounceMs, 3000),
     mineTimeoutMs: num(o.mineTimeoutMs, 120000),
     exportsDir: str(o.exportsDir, path.join(defaultDataDir(), "exchanges")),
