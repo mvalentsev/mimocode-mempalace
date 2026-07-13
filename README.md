@@ -1,12 +1,51 @@
-# mimocode-mempalace
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
+    <img src=".github/assets/banner-light.svg" alt="mimocode-mempalace: long-term memory for MiMoCode, backed by MemPalace" width="840">
+  </picture>
+</div>
+
+<p align="center">
+  <a href="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml"><img src="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/mimocode-mempalace"><img src="https://img.shields.io/npm/v/mimocode-mempalace" alt="npm version"></a>
+  <img src="https://img.shields.io/badge/runtime_deps-0-2ea44f" alt="zero runtime dependencies">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="#setup">Setup</a> ·
+  <a href="#options">Options</a> ·
+  <a href="#import-your-past-sessions">Import history</a> ·
+  <a href="#active-memory-mcp-and-the-knowledge-graph">MCP &amp; knowledge graph</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
 
 Long-term memory for [MiMoCode](https://github.com/XiaomiMiMo/MiMo-Code), backed by [MemPalace](https://github.com/MemPalace/mempalace).
 
 MiMoCode ships a solid file-based project memory (MEMORY.md, checkpoints, FTS5 search). This plugin adds the other half: a semantic memory that spans all your sessions and projects. Every completed turn is saved into a MemPalace "palace", and on each new request the most relevant past exchanges are retrieved by meaning, not just keywords, and placed into the system prompt. The model doesn't have to remember to search; the plugin does it for it.
 
-Ask "which port does the staging gateway use?" in a later session — after you discussed it once and forgot — and the answer is already in context.
+<p align="center">
+  <img src=".github/assets/demo.svg" alt="A fact mentioned once in one session is answered from memory in a later one" width="840">
+</p>
+
+The same round trip is pinned by [`test/e2e.test.ts`](test/e2e.test.ts) against a real palace: captured in one session, mined, and recalled through the system prompt in the next.
 
 ## How it works
+
+```mermaid
+flowchart LR
+    subgraph write["every completed turn"]
+        A["session.post"] --> B["transcript file<br>question + final answer"]
+        B --> C["mempalace mine<br>debounced, serialized"]
+    end
+    P[("palace<br>wing per project")]
+    subgraph read["every new request"]
+        D["chat.message"] --> E["mempalace search<br>cached per query"]
+        E --> F["# Long-term memory (MemPalace)<br>in the system prompt"]
+    end
+    C --> P
+    P --> E
+```
 
 Write side:
 
@@ -171,6 +210,8 @@ bun install
 bun test            # unit suite; the e2e file auto-skips without mempalace on PATH
 bun run typecheck
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules and [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 

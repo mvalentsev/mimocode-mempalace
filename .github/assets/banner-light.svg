@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-label="mimocode-mempalace: long-term memory for MiMoCode, backed by MemPalace">
+  <rect x="1" y="1" width="1198" height="258" rx="16" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+
+  <!-- memory constellation -->
+  <g stroke="#d8dee4" stroke-width="1.5" fill="none">
+    <line x1="962" y1="78" x2="1052" y2="58"/>
+    <line x1="1052" y1="58" x2="1128" y2="98"/>
+    <line x1="962" y1="78" x2="988" y2="142"/>
+    <line x1="988" y1="142" x2="1078" y2="152"/>
+    <line x1="1128" y1="98" x2="1078" y2="152"/>
+    <line x1="988" y1="142" x2="1022" y2="204"/>
+    <line x1="1022" y1="204" x2="1078" y2="152"/>
+    <line x1="1078" y1="152" x2="1138" y2="192"/>
+  </g>
+  <line x1="988" y1="142" x2="1078" y2="152" stroke="#8250df" stroke-width="1.5" opacity="0.25">
+    <animate attributeName="opacity" values="0.15;0.7;0.15" dur="5s" repeatCount="indefinite"/>
+  </line>
+  <g fill="#b39ddb">
+    <circle cx="962" cy="78" r="4"/>
+    <circle cx="1052" cy="58" r="4"/>
+    <circle cx="1128" cy="98" r="4"/>
+    <circle cx="988" cy="142" r="5"/>
+    <circle cx="1022" cy="204" r="4"/>
+    <circle cx="1138" cy="192" r="4"/>
+  </g>
+  <circle cx="1078" cy="152" r="7" fill="#8250df">
+    <animate attributeName="opacity" values="0.55;1;0.55" dur="5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- wordmark -->
+  <text x="70" y="126" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="52" font-weight="700">
+    <tspan fill="#1f2328">mimocode</tspan><tspan fill="#6e7781">-</tspan><tspan fill="#8250df">mempalace</tspan>
+  </text>
+  <text x="72" y="172" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" fill="#57606a">Long-term memory for MiMoCode, backed by MemPalace</text>
+  <text x="72" y="208" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="16" fill="#6e7781">every completed turn captured &#183; recalled by meaning &#183; injected into the system prompt</text>
+</svg>
