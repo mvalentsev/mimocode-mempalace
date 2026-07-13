@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "mimocode-mempalace",
+  "version": "0.1.0",
+  "description": "MemPalace long-term memory for MiMoCode: captures every completed turn into a semantic memory palace and injects relevant memories back into the system prompt",
+  "type": "module",
+  "license": "MIT",
+  "author": "Mikhail Valentsev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mvalentsev/mimocode-mempalace.git"
+  },
+  "keywords": [
+    "mimocode",
+    "mempalace",
+    "memory",
+    "plugin",
+    "opencode",
+    "knowledge-graph",
+    "semantic-search"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@mimo-ai/plugin": "0.1.5",
+    "@types/bun": "^1.2.0",
+    "typescript": "^7.0.2"
+  }
+}

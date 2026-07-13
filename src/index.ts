@@ -1,0 +1,74 @@
+import type { Plugin } from "@mimo-ai/plugin"
+import { resolveOptions } from "./config.ts"
+import { createLogger } from "./log.ts"
+import { createMiner, run } from "./mempalace.ts"
+import { captureDir, createCapture, type SessionPostInput } from "./capture.ts"
+import { createInjector } from "./inject.ts"
+
+/** mempalace releases below 3.3.5 ship an HNSW-corrupting repair path. */
+const MIN_MEMPALACE = [3, 3, 5] as const
+
+const versionAtLeast = (reported: string, min: readonly [number, number, number]) => {
+  const m = reported.match(/(\d+)\.(\d+)\.(\d+)/)
+  if (!m) return false
+  const parts = [Number(m[1]), Number(m[2]), Number(m[3])]
+  for (let i = 0; i < 3; i++) {
+    if (parts[i]! > min[i]!) return true
+    if (parts[i]! < min[i]!) return false
+  }
+  return true
+}
+
+export const server: Plugin = async (input, options) => {
+  const o = resolveOptions(options as Record<string, unknown> | undefined, input.directory)
+  const log = createLogger(o.log)
+
+  const available = run(o.bin, ["--version"], 10_000).then((res) => {
+    if (!res.ok) {
+      log(`mempalace unavailable (${o.bin}): ${(res.stderr || res.stdout).slice(0, 200)}; plugin is a no-op`)
+      return false
+    }
+    const version = (res.stdout || res.stderr).trim()
+    if (!versionAtLeast(version, MIN_MEMPALACE)) {
+      log(`${version} is older than 3.3.5 (HNSW repair corruption); refusing to write, please upgrade`)
+      return false
+    }
+    log(`ready: ${version}, palace=${o.palace}, wing=${o.wing === false ? "(off)" : o.wing}`)
+    return true
+  })
+
+  const miner = createMiner(o, captureDir(o), log)
+  const capture = createCapture(o, miner, log)
+  const injector = createInjector(o, log)
+
+  return {
+    "chat.message": async (hookInput, output) => {
+      if (!o.inject) return
+      try {
+        injector.onChatMessage(hookInput.sessionID, output)
+      } catch (e) {
+        log(`chat.message hook error: ${e}`)
+      }
+    },
+    "experimental.chat.system.transform": async (hookInput, output) => {
+      if (!o.inject) return
+      if (!(await available)) return
+      try {
+        await injector.onSystemTransform(hookInput.sessionID, output)
+      } catch (e) {
+        log(`system.transform hook error: ${e}`)
+      }
+    },
+    "session.post": async (hookInput) => {
+      if (!o.capture) return
+      if (!(await available)) return
+      try {
+        await capture.onSessionPost(hookInput as SessionPostInput)
+      } catch (e) {
+        log(`session.post hook error: ${e}`)
+      }
+    },
+  }
+}
+
+export default { id: "mimocode-mempalace", server }
