@@ -6,7 +6,7 @@ import { captureDir, createCapture, type SessionPostInput } from "./capture.ts"
 import { createInjector } from "./inject.ts"
 import { runBackfill } from "./backfill.ts"
 
-/** mempalace releases below 3.3.5 ship an HNSW-corrupting repair path. */
+/** Anything older is refused: the plugin logs `plugin disabled` and stays inert. */
 const MIN_MEMPALACE = [3, 3, 5] as const
 
 const versionAtLeast = (reported: string, min: readonly [number, number, number]) => {
@@ -31,7 +31,7 @@ export const server: Plugin = async (input, options) => {
     }
     const version = (res.stdout || res.stderr).trim()
     if (!versionAtLeast(version, MIN_MEMPALACE)) {
-      log(`plugin disabled: ${version} is older than 3.3.5 (HNSW repair corruption); upgrade mempalace`)
+      log(`plugin disabled: ${version} is older than 3.3.5; upgrade mempalace`)
       return false
     }
     log(`ready: ${version}, palace=${o.palace}, wing=${o.wing === false ? "(off)" : o.wing}`)

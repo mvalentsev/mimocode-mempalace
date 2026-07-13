@@ -4,13 +4,13 @@ Long-term memory for [MiMoCode](https://github.com/XiaomiMiMo/MiMo-Code), backed
 
 MiMoCode ships a solid file-based project memory (MEMORY.md, checkpoints, FTS5 search). This plugin adds the other half: a semantic memory that spans all your sessions and projects. Every completed turn is saved into a MemPalace "palace", and on each new request the most relevant past exchanges are retrieved by meaning, not just keywords, and placed into the system prompt. The model doesn't have to remember to search; the plugin does it for it.
 
-Ask "which port does the staging gateway use?" three weeks after you discussed it once, in a different session, and the answer is already in context.
+Ask "which port does the staging gateway use?" in a later session — after you discussed it once and forgot — and the answer is already in context.
 
 ## How it works
 
 Write side:
 
-1. `session.post` fires when a top-level turn finishes (it fires reliably, even on errors; only completed turns are saved).
+1. `session.post` fires when a top-level turn finishes (it fires for completed and failed turns alike; only completed ones are saved).
 2. The plugin writes the user question and the final answer as a small transcript file.
 3. A debounced, serialized `mempalace mine` run files it into the palace. Runs never overlap, so the palace index stays healthy.
 4. Exchanges are scoped into a wing named after your project directory, so search results stay project-relevant by default.
@@ -26,11 +26,10 @@ Subagent slices (checkpoint writers, reviewers, title generators) are not captur
 ## Requirements
 
 - MiMoCode 0.1.5 or later
-- MemPalace 3.3.5 or later (earlier releases have an HNSW corruption bug in `repair`; the plugin refuses to write through them)
+- MemPalace 3.3.5 or later — on anything older the plugin logs `plugin disabled` and neither reads nor writes
 
 ```bash
 uv tool install "mempalace>=3.3.5"
-# or: pipx install "mempalace>=3.3.5"
 ```
 
 ## Setup
@@ -142,7 +141,7 @@ Relevant memories already arrive in the system prompt under "Long-term memory
 - Exchange transcripts stay in `exportsDir` after mining. `mempalace mine` is incremental and skips already-filed files; the leftovers double as a plain-text journal of your sessions. Turn on `cleanupAfterMine` if you prefer them gone.
 - A session that exits quickly can outrun the debounced mine. The next plugin start notices pending exchange files and mines them, so nothing is lost.
 - The injected block tells the model to trust current code over old memories when they conflict.
-- Vanilla OpenCode isn't a target right now: the capture path relies on MiMoCode's `session.post` hook, which upstream doesn't have. For OpenCode, look at [opencode-mempalace-persistence](https://github.com/geco/opencode-mempalace-persistence).
+- Vanilla OpenCode isn't a target right now: the capture path is built on MiMoCode's `session.post` hook. For OpenCode, look at [opencode-mempalace-persistence](https://github.com/geco/opencode-mempalace-persistence).
 
 ## Troubleshooting
 

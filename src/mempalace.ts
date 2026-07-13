@@ -81,9 +81,9 @@ export type Miner = {
 }
 
 /**
- * Serialized, coalescing mine queue. Concurrent mine runs against one palace
- * can corrupt its FTS5 index, so runs are chained; schedule() calls landing
- * during a run mark the state dirty and trigger exactly one follow-up run.
+ * Serialized, coalescing mine queue: this plugin never has two mine runs in
+ * flight against its palace. schedule() calls landing during a run mark the
+ * state dirty and trigger exactly one follow-up run.
  */
 export function createMiner(o: Options, dir: string, log: Logger): Miner {
   let chain = Promise.resolve()

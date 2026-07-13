@@ -154,5 +154,4 @@ export async function runBackfill(o: Options, miner: Miner, log: Logger): Promis
       ` (skipped: ${result.skippedCaptured} already captured, ${result.skippedEmpty} empty)`,
   )
   for (const [dir, wing] of wings) await miner.enqueue(dir, wing)
-  if (wings.size) log("backfill: mining queued/done")
 }

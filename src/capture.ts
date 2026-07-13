@@ -47,9 +47,8 @@ export function extractLastUserText(trajectory: TrajectoryMessageLike[]) {
 }
 
 /**
- * Claude-Code-shaped JSONL: the transcript form `mempalace mine --mode convos`
- * detects. Two lines for an exchange; consecutive assistant lines are merged
- * into one turn by the miner.
+ * Claude-Code-shaped JSONL, the transcript form `mempalace mine --mode convos`
+ * files into the palace. Two lines for an exchange.
  */
 export function buildExchangeJsonl(user: string, assistant: string) {
   const lines = [
