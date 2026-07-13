@@ -30,7 +30,7 @@ export const server: Plugin = async (input, options) => {
     }
     const version = (res.stdout || res.stderr).trim()
     if (!versionAtLeast(version, MIN_MEMPALACE)) {
-      log(`${version} is older than 3.3.5 (HNSW repair corruption); refusing to write, please upgrade`)
+      log(`plugin disabled: ${version} is older than 3.3.5 (HNSW repair corruption); upgrade mempalace`)
       return false
     }
     log(`ready: ${version}, palace=${o.palace}, wing=${o.wing === false ? "(off)" : o.wing}`)

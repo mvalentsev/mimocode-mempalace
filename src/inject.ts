@@ -9,6 +9,15 @@ export type ChatMessageOutput = { parts?: PartLike[] }
 const CACHE_TTL_MS = 120_000
 const CACHE_MAX = 20
 const SESSIONS_MAX = 100
+const QUERY_MAX_CHARS = 600
+
+/** A pasted wall of code makes a poor and slow embedding query; the head carries the intent. */
+const trimQuery = (text: string) => {
+  if (text.length <= QUERY_MAX_CHARS) return text
+  const cut = text.slice(0, QUERY_MAX_CHARS)
+  const lastSpace = cut.lastIndexOf(" ")
+  return lastSpace > QUERY_MAX_CHARS / 2 ? cut.slice(0, lastSpace) : cut
+}
 
 const mapCap = <K, V>(map: Map<K, V>, max: number) => {
   while (map.size > max) {
@@ -78,7 +87,7 @@ export function createInjector(o: Options, log: Logger): Injector {
         .join("\n")
       if (!text) return
       lastUserText.delete(sessionID)
-      lastUserText.set(sessionID, text)
+      lastUserText.set(sessionID, trimQuery(text))
       mapCap(lastUserText, SESSIONS_MAX)
     },
     onSystemTransform: async (sessionID, output) => {

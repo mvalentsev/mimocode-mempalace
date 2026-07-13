@@ -82,3 +82,17 @@ describe("createInjector", () => {
     expect(out.system).toEqual([])
   })
 })
+
+describe("trimQuery via onChatMessage", () => {
+  test("a pasted wall of text becomes a bounded query", async () => {
+    const counter = path.join(await mkdtemp(path.join(os.tmpdir(), "mm-q-")), "q.txt")
+    const f = await fakeSearchBin(`printf '%s' "$4" > "${counter}"\ncat <<'EOF2'\n${RESULT}\nEOF2`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+    inj.onChatMessage("s1", userMessage("intent words " + "x".repeat(5000)))
+    await inj.onSystemTransform("s1", { system: [] })
+    const sent = await Bun.file(counter).text()
+    expect(sent.length).toBeLessThanOrEqual(600)
+    expect(sent.startsWith("intent words")).toBe(true)
+  })
+})
