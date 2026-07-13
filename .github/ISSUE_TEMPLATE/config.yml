@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: MemPalace issues
+    url: https://github.com/MemPalace/mempalace/issues
+    about: Palace, mining, and search internals live upstream — report them there.
+  - name: MiMoCode issues
+    url: https://github.com/XiaomiMiMo/MiMo-Code/issues
+    about: Host-side hook and plugin-loading behavior belongs to MiMoCode.

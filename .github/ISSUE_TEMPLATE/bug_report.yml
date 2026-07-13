@@ -1,0 +1,35 @@
+name: Bug report
+description: Something the plugin does wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Plugin entry from mimocode.json
+      description: The `["mimocode-mempalace", {...}]` line (redact anything private).
+      render: json
+    validations:
+      required: false
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Plugin / MiMoCode / MemPalace (`mempalace --version`), and your OS.
+      placeholder: "0.1.0 / 0.1.5 / 3.5.0, Ubuntu 24.04"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: plugin.log excerpt
+      description: 'Set `"log": true` in the plugin options, reproduce once, and paste the relevant lines.'
+      render: text
+    validations:
+      required: false
