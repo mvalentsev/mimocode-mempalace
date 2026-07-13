@@ -109,3 +109,48 @@ describe("createMiner", () => {
     }
   })
 })
+
+describe("searchScope", () => {
+  test("palace scope drops the wing filter from search only", () => {
+    const o = resolveOptions({ palace: "/p", wing: "w1", searchScope: "palace" }, "/p/x")
+    expect(searchArgs(o, "q")).not.toContain("--wing")
+    expect(mineArgs(o, "/d")).toContain("--wing")
+  })
+})
+
+describe("cleanupAfterMine", () => {
+  test("mined transcripts are removed after a successful run, later arrivals survive", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "mm-clean-"))
+    await writeFile(path.join(dir, "session-a.jsonl"), "{}\n")
+    const f = await fakeBin("sleep 0.15")
+    const o = resolveOptions(
+      { bin: f.bin, palace: "/p", wing: "w", cleanupAfterMine: true, mineDebounceMs: 30, mineTimeoutMs: 5000 },
+      "/p/x",
+    )
+    const miner = createMiner(o, dir, () => {})
+    miner.schedule()
+    await Bun.sleep(80) // mine (sleep 0.15) is now in flight
+    // Lands mid-run with no new schedule: the snapshot cleanup must not touch it.
+    await writeFile(path.join(dir, "session-b.jsonl"), "{}\n")
+    await miner.flush()
+    const bAlive = await readFile(path.join(dir, "session-b.jsonl"), "utf8").catch(() => null)
+    expect(bAlive).toBe("{}\n")
+    const aGone = (await readFile(path.join(dir, "session-a.jsonl"), "utf8").catch(() => null)) === null
+    expect(aGone).toBe(true)
+  })
+
+  test("failed mine keeps transcripts", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "mm-clean-"))
+    await writeFile(path.join(dir, "session-a.jsonl"), "{}\n")
+    const f = await fakeBin("exit 2")
+    const o = resolveOptions(
+      { bin: f.bin, palace: "/p", wing: "w", cleanupAfterMine: true, mineDebounceMs: 30 },
+      "/p/x",
+    )
+    const miner = createMiner(o, dir, () => {})
+    miner.schedule()
+    await miner.flush()
+    const still = await readFile(path.join(dir, "session-a.jsonl"), "utf8")
+    expect(still).toBe("{}\n")
+  })
+})

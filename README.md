@@ -72,6 +72,9 @@ To try it from a checkout instead of npm, use the absolute repo path as the plug
 | `palace` | `~/.local/share/mimocode-mempalace/palace` | Palace directory (create it with `mempalace init`) |
 | `bin` | `mempalace` | mempalace executable, if not on PATH |
 | `wing` | `"auto"` | `"auto"` scopes memories per project directory name; a string pins one wing for everything; `false` disables wing scoping |
+| `searchScope` | `"wing"` | `"wing"` keeps recall inside the current project; `"palace"` searches across all projects ("how did I solve this in that other repo?") |
+| `captureMode` | `"exchange"` | `"exchange"` saves question + final answer; `"turn"` also keeps the intermediate assistant replies of the turn (tool-loop reasoning) |
+| `cleanupAfterMine` | `false` | Delete exchange transcripts once they are mined; by default they stay as a plain-text journal |
 | `capture` | `true` | Save completed turns |
 | `inject` | `true` | Retrieve and inject memories |
 | `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables |
@@ -84,10 +87,50 @@ To try it from a checkout instead of npm, use the absolute repo path as the plug
 | `agents` | `["main"]` | Agent slices to capture |
 | `log` | `false` | `true` logs to `~/.local/share/mimocode-mempalace/plugin.log`, a string sets a custom path |
 
+## Active memory: MCP and the knowledge graph
+
+The plugin covers the passive loop: capture and inject, no model discipline required. For active memory, where the model digs deeper on its own, wire the MemPalace MCP server into MiMoCode as well. Both halves share the same palace.
+
+Add to `mimocode.json` next to the plugin entry:
+
+```json
+{
+  "mcp": {
+    "mempalace": {
+      "type": "local",
+      "command": ["mempalace-mcp", "--palace", "/home/you/mimo-memory"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Use an absolute path in `command`: the args array is spawned without a shell, so `~` isn't expanded there (plugin options do expand it).
+
+MiMoCode prefixes every tool with the server name from the config, so with the entry above the model sees `mempalace_mempalace_search`, `mempalace_mempalace_kg_query`, `mempalace_mempalace_kg_add` and friends. The injected block answers most questions by itself; MCP lets the model follow up when the injected excerpt is not enough, and record durable facts into the knowledge graph.
+
+To make the model actually use the graph, add a rules file (`AGENTS.md` in `~/.config/mimocode/` or your project):
+
+```markdown
+## Memory protocol
+
+Relevant memories already arrive in the system prompt under "Long-term memory
+(MemPalace)"; you don't need to search for what's already there.
+
+- When an injected memory is truncated or you need more context around it,
+  call `mempalace_mempalace_search` with a focused query.
+- After a decision, a fixed bug, or a stated preference, record one fact with
+  `mempalace_mempalace_kg_add` (subject "user" or the project name, object
+  under 128 chars). Prefer quality over quantity; skip facts you are not
+  sure about.
+- Query `mempalace_mempalace_kg_query` for entity "user" when personalization
+  matters.
+```
+
 ## Notes
 
 - Everything is local: exchanges, the palace, the search. Nothing leaves your machine beyond what your model provider already sees in the prompt.
-- Exchange transcripts stay in `exportsDir` after mining. `mempalace mine` is incremental and skips already-filed files; the leftovers double as a plain-text journal of your sessions. Delete them whenever you like.
+- Exchange transcripts stay in `exportsDir` after mining. `mempalace mine` is incremental and skips already-filed files; the leftovers double as a plain-text journal of your sessions. Turn on `cleanupAfterMine` if you prefer them gone.
 - A session that exits quickly can outrun the debounced mine. The next plugin start notices pending exchange files and mines them, so nothing is lost.
 - The injected block tells the model to trust current code over old memories when they conflict.
 - Vanilla OpenCode isn't a target right now: the capture path relies on MiMoCode's `session.post` hook, which upstream doesn't have. For OpenCode, look at [opencode-mempalace-persistence](https://github.com/geco/opencode-mempalace-persistence).

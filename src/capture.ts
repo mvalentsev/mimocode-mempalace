@@ -47,14 +47,46 @@ export function extractLastUserText(trajectory: TrajectoryMessageLike[]) {
 }
 
 /**
- * Two-line Claude-Code-shaped JSONL: the exact transcript form
- * `mempalace mine --mode convos` detects and chunks as an exchange pair.
+ * Claude-Code-shaped JSONL: the transcript form `mempalace mine --mode convos`
+ * detects. Two lines for an exchange; consecutive assistant lines are merged
+ * into one turn by the miner.
  */
 export function buildExchangeJsonl(user: string, assistant: string) {
   const lines = [
     { type: "user", message: { content: user } },
     { type: "assistant", message: { content: assistant } },
   ]
+  return lines.map((l) => JSON.stringify(l)).join("\n") + "\n"
+}
+
+/**
+ * "turn" capture: everything from the last human user turn to the end of the
+ * trajectory, so intermediate assistant replies between tool calls survive,
+ * not just the final answer. Returns undefined when there is no user turn.
+ */
+export function buildTurnJsonl(trajectory: TrajectoryMessageLike[], finalText: string) {
+  let start = -1
+  for (let i = trajectory.length - 1; i >= 0; i--) {
+    const msg = trajectory[i]!
+    if (msg.role === "user" && msg.provenance === undefined && partText(msg.parts ?? [])) {
+      start = i
+      break
+    }
+  }
+  if (start === -1) return undefined
+  const lines: { type: string; message: { content: string } }[] = []
+  for (const msg of trajectory.slice(start)) {
+    if (msg.provenance !== undefined) continue
+    const text = partText(msg.parts ?? [])
+    if (!text) continue
+    lines.push({ type: msg.role, message: { content: text } })
+  }
+  const last = lines[lines.length - 1]
+  const final = finalText.trim()
+  if (final && (!last || last.type !== "assistant" || !last.message.content.includes(final))) {
+    lines.push({ type: "assistant", message: { content: final } })
+  }
+  if (lines.length < 2) return undefined
   return lines.map((l) => JSON.stringify(l)).join("\n") + "\n"
 }
 
@@ -103,15 +135,20 @@ export function createCapture(o: Options, miner: Miner, log: Logger): Capture {
       if (input.outcome !== "completed") return
       const assistant = input.finalText?.trim()
       if (!assistant) return
-      const user = extractLastUserText(input.trajectory ?? [])
+      const trajectory = input.trajectory ?? []
+      const user = extractLastUserText(trajectory)
       if (!user) {
         log(`skip ${input.sessionID}: no non-synthetic user turn in trajectory`)
         return
       }
+      const body =
+        o.captureMode === "turn"
+          ? (buildTurnJsonl(trajectory, assistant) ?? buildExchangeJsonl(user, assistant))
+          : buildExchangeJsonl(user, assistant)
       if (!(await ready)) return
       const file = path.join(dir, exchangeFilename(input.sessionID, input.assistantMessageID))
-      await Bun.write(file, buildExchangeJsonl(user, assistant))
-      log(`captured ${path.basename(file)} (${user.length}+${assistant.length} chars)`)
+      await Bun.write(file, body)
+      log(`captured ${path.basename(file)} (${body.length} chars, mode=${o.captureMode})`)
       miner.schedule()
     },
   }

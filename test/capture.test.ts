@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile } from "node:fs/promises"
 import os from "os"
 import path from "path"
 import {
+  buildTurnJsonl,
   buildExchangeJsonl,
   createCapture,
   exchangeFilename,
@@ -113,5 +114,39 @@ describe("createCapture.onSessionPost", () => {
     const files = await readdir(s.capture.dir).catch(() => [])
     expect(files).toEqual([])
     expect(s.spy.calls).toEqual([])
+  })
+})
+
+describe("buildTurnJsonl", () => {
+  const traj = [
+    { role: "user" as const, parts: [textPart("old question")] },
+    { role: "assistant" as const, parts: [textPart("old answer")] },
+    { role: "user" as const, parts: [textPart("current question")] },
+    { role: "assistant" as const, parts: [textPart("let me check the config first")] },
+    { role: "assistant" as const, parts: [textPart("reminder", { synthetic: true })] },
+    { role: "user" as const, parts: [textPart("injected")], provenance: { hookPhase: "post" } },
+    { role: "assistant" as const, parts: [textPart("final: port is 9090")] },
+  ]
+
+  test("keeps the current turn only, with intermediate assistant text", () => {
+    const raw = buildTurnJsonl(traj, "final: port is 9090")!
+    const lines = raw.trim().split("\n").map((l) => JSON.parse(l))
+    expect(lines.map((l) => l.type)).toEqual(["user", "assistant", "assistant"])
+    expect(lines[0].message.content).toBe("current question")
+    expect(lines[1].message.content).toBe("let me check the config first")
+    expect(lines[2].message.content).toBe("final: port is 9090")
+    expect(raw).not.toContain("old question")
+    expect(raw).not.toContain("injected")
+    expect(raw).not.toContain("reminder")
+  })
+
+  test("appends finalText when the trajectory tail misses it", () => {
+    const raw = buildTurnJsonl(traj.slice(0, 4), "the real final")!
+    const lines = raw.trim().split("\n").map((l) => JSON.parse(l))
+    expect(lines[lines.length - 1].message.content).toBe("the real final")
+  })
+
+  test("undefined without a user turn", () => {
+    expect(buildTurnJsonl([{ role: "assistant", parts: [textPart("a")] }], "x")).toBeUndefined()
   })
 })

@@ -8,6 +8,12 @@ export type Options = {
   bin: string
   /** Wing for captured exchanges: "auto" scopes by project directory name, a string pins one wing, false disables wing scoping. */
   wing: string | false
+  /** Search scope for injection: "wing" stays inside the project wing, "palace" searches everything. */
+  searchScope: "wing" | "palace"
+  /** "exchange" saves question + final answer; "turn" also keeps intermediate assistant replies of the turn. */
+  captureMode: "exchange" | "turn"
+  /** Delete exchange transcripts after they are mined successfully. */
+  cleanupAfterMine: boolean
   /** Save completed turns into the palace. */
   capture: boolean
   /** Inject relevant memories into the system prompt. */
@@ -72,6 +78,9 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
     palace: str(o.palace, path.join(defaultDataDir(), "palace")),
     bin: str(o.bin, "mempalace"),
     wing,
+    searchScope: o.searchScope === "palace" ? "palace" : "wing",
+    captureMode: o.captureMode === "turn" ? "turn" : "exchange",
+    cleanupAfterMine: bool(o.cleanupAfterMine, false),
     capture: bool(o.capture, true),
     inject: bool(o.inject, true),
     identityFile,

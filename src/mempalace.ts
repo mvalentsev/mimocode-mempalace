@@ -1,3 +1,5 @@
+import { readdir, unlink } from "node:fs/promises"
+import path from "path"
 import type { Logger } from "./log.ts"
 import type { Options } from "./config.ts"
 
@@ -41,7 +43,7 @@ export async function run(bin: string, args: string[], timeoutMs: number): Promi
 /** `--palace` is a global flag and must precede the subcommand. */
 export function searchArgs(o: Options, query: string) {
   const args = ["--palace", o.palace, "search", query, "--results", String(o.injectResults)]
-  if (o.wing !== false) args.push("--wing", o.wing)
+  if (o.wing !== false && o.searchScope === "wing") args.push("--wing", o.wing)
   return args
 }
 
@@ -91,9 +93,28 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
     if (!dirty) return
     dirty = false
     chain = chain.then(async () => {
+      // Snapshot before the run: files that land while mine is in flight are
+      // not covered by it and must survive the cleanup below.
+      const before = o.cleanupAfterMine ? await readdir(dir).catch(() => [] as string[]) : []
       const res = await run(o.bin, mineArgs(o, dir), o.mineTimeoutMs)
       if (!res.ok) log(`mine failed (code=${res.code} timedOut=${res.timedOut}): ${res.stderr.slice(0, 500)}`)
-      if (res.ok) log(`mine ok: ${dir}`)
+      if (res.ok) {
+        log(`mine ok: ${dir}`)
+        if (o.cleanupAfterMine) {
+          const gone = await Promise.all(
+            before
+              .filter((f) => f.endsWith(".jsonl"))
+              .map((f) =>
+                unlink(path.join(dir, f)).then(
+                  () => 1,
+                  () => 0,
+                ),
+              ),
+          )
+          const count = gone.reduce((a: number, b) => a + b, 0)
+          if (count) log(`cleanup: removed ${count} mined transcript(s)`)
+        }
+      }
       if (dirty && timer === undefined) timer = setTimeout(fire, o.mineDebounceMs)
     })
   }

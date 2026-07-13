@@ -60,3 +60,21 @@ describe("resolveOptions", () => {
     expect(resolveOptions(undefined, "/p/x").identityFile).toContain("identity.md")
   })
 })
+
+describe("new options", () => {
+  test("searchScope, captureMode, cleanupAfterMine defaults", () => {
+    const o = resolveOptions(undefined, "/p/x")
+    expect(o.searchScope).toBe("wing")
+    expect(o.captureMode).toBe("exchange")
+    expect(o.cleanupAfterMine).toBe(false)
+  })
+  test("overrides accepted, junk rejected", () => {
+    const o = resolveOptions({ searchScope: "palace", captureMode: "turn", cleanupAfterMine: true }, "/p/x")
+    expect(o.searchScope).toBe("palace")
+    expect(o.captureMode).toBe("turn")
+    expect(o.cleanupAfterMine).toBe(true)
+    const junk = resolveOptions({ searchScope: "galaxy", captureMode: 7 }, "/p/x")
+    expect(junk.searchScope).toBe("wing")
+    expect(junk.captureMode).toBe("exchange")
+  })
+})
