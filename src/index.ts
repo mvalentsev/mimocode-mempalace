@@ -4,6 +4,7 @@ import { createLogger } from "./log.ts"
 import { createMiner, run } from "./mempalace.ts"
 import { captureDir, createCapture, type SessionPostInput } from "./capture.ts"
 import { createInjector } from "./inject.ts"
+import { runBackfill } from "./backfill.ts"
 
 /** mempalace releases below 3.3.5 ship an HNSW-corrupting repair path. */
 const MIN_MEMPALACE = [3, 3, 5] as const
@@ -38,8 +39,15 @@ export const server: Plugin = async (input, options) => {
   })
 
   const miner = createMiner(o, captureDir(o), log)
-  const capture = createCapture(o, miner, log)
+  const capture = createCapture(o, miner, log, available)
   const injector = createInjector(o, log)
+
+  if (o.capture && o.backfill !== false) {
+    void available.then((ok) => {
+      if (!ok) return
+      return runBackfill(o, miner, log).catch((e) => log(`backfill error: ${e}`))
+    })
+  }
 
   return {
     "chat.message": async (hookInput, output) => {

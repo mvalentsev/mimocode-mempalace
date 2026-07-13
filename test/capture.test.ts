@@ -65,7 +65,7 @@ describe("exchangeFilename", () => {
 
 const minerSpy = () => {
   const calls: string[] = []
-  const miner: Miner = { schedule: () => calls.push("schedule"), flush: async () => {} }
+  const miner: Miner = { schedule: () => calls.push("schedule"), enqueue: async () => {}, flush: async () => {} }
   return { miner, calls }
 }
 
@@ -84,7 +84,7 @@ describe("createCapture.onSessionPost", () => {
     const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-cap-"))
     const o = resolveOptions({ exportsDir: tmp, wing: "w1" }, "/p/x")
     const spy = minerSpy()
-    const capture = createCapture(o, spy.miner, () => {})
+    const capture = createCapture(o, spy.miner, () => {}, Promise.resolve(true))
     return { tmp, capture, spy }
   }
 

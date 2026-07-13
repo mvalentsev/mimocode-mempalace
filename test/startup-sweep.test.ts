@@ -13,20 +13,50 @@ describe("startup sweep", () => {
     await writeFile(path.join(tmp, "w1", "session-old-x.jsonl"), "{}\n{}\n")
 
     const calls: string[] = []
-    const miner: Miner = { schedule: () => calls.push("schedule"), flush: async () => {} }
+    const miner: Miner = { schedule: () => calls.push("schedule"), enqueue: async (d, w) => void calls.push(`enqueue:${path.basename(d)}:${w}`), flush: async () => {} }
     const o = resolveOptions({ exportsDir: tmp, wing: "w1" }, "/p/x")
-    createCapture(o, miner, () => {})
+    createCapture(o, miner, () => {}, Promise.resolve(true))
 
     await Bun.sleep(50)
     expect(calls).toEqual(["schedule"])
   })
 
+  test("foreign wing subdirectories are queued with their own wing", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-sweep-"))
+    await mkdir(path.join(tmp, "w2"), { recursive: true })
+    await writeFile(path.join(tmp, "w2", "backfill-old.jsonl"), "{}\n{}\n")
+
+    const calls: string[] = []
+    const miner: Miner = { schedule: () => calls.push("schedule"), enqueue: async (d, w) => void calls.push(`enqueue:${path.basename(d)}:${w}`), flush: async () => {} }
+    const o = resolveOptions({ exportsDir: tmp, wing: "w1" }, "/p/x")
+    createCapture(o, miner, () => {}, Promise.resolve(true))
+
+    await Bun.sleep(50)
+    expect(calls).toEqual(["enqueue:w2:w2"])
+  })
+
+  test("failed availability gate suppresses the sweep entirely", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-sweep-"))
+    await mkdir(path.join(tmp, "w1"), { recursive: true })
+    await mkdir(path.join(tmp, "w2"), { recursive: true })
+    await writeFile(path.join(tmp, "w1", "session-old-x.jsonl"), "{}\n{}\n")
+    await writeFile(path.join(tmp, "w2", "backfill-old.jsonl"), "{}\n{}\n")
+
+    const calls: string[] = []
+    const miner: Miner = { schedule: () => calls.push("schedule"), enqueue: async (d, w) => void calls.push(`enqueue:${path.basename(d)}:${w}`), flush: async () => {} }
+    const o = resolveOptions({ exportsDir: tmp, wing: "w1" }, "/p/x")
+    createCapture(o, miner, () => {}, Promise.resolve(false))
+
+    await Bun.sleep(50)
+    expect(calls).toEqual([])
+  })
+
   test("clean directory schedules nothing", async () => {
     const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-sweep-"))
     const calls: string[] = []
-    const miner: Miner = { schedule: () => calls.push("schedule"), flush: async () => {} }
+    const miner: Miner = { schedule: () => calls.push("schedule"), enqueue: async (d, w) => void calls.push(`enqueue:${path.basename(d)}:${w}`), flush: async () => {} }
     const o = resolveOptions({ exportsDir: tmp, wing: "w1" }, "/p/x")
-    createCapture(o, miner, () => {})
+    createCapture(o, miner, () => {}, Promise.resolve(true))
 
     await Bun.sleep(50)
     expect(calls).toEqual([])

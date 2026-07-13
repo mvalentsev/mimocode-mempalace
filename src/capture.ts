@@ -90,7 +90,7 @@ export function buildTurnJsonl(trajectory: TrajectoryMessageLike[], finalText: s
   return lines.map((l) => JSON.stringify(l)).join("\n") + "\n"
 }
 
-const sanitizeId = (raw: string) => raw.replace(/[^A-Za-z0-9_-]+/g, "").slice(0, 64) || "x"
+export const sanitizeId = (raw: string) => raw.replace(/[^A-Za-z0-9_-]+/g, "").slice(0, 64) || "x"
 
 export function exchangeFilename(sessionID: string, assistantMessageID: string | undefined) {
   const suffix = assistantMessageID ? sanitizeId(assistantMessageID) : String(Date.now())
@@ -106,7 +106,7 @@ export type Capture = {
 export const captureDir = (o: Options) =>
   o.wing === false ? path.join(o.exportsDir, "unsorted") : path.join(o.exportsDir, o.wing)
 
-export function createCapture(o: Options, miner: Miner, log: Logger): Capture {
+export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promise<boolean>): Capture {
   const dir = captureDir(o)
   const ready = mkdir(dir, { recursive: true }).then(
     () => true,
@@ -116,13 +116,26 @@ export function createCapture(o: Options, miner: Miner, log: Logger): Capture {
     },
   )
   // A short-lived session can exit before the debounced mine fires, leaving
-  // the newest exchange unmined; sweep leftovers on the next startup.
+  // the newest exchange unmined; sweep leftovers on the next startup. Other
+  // wings' subdirectories (backfill output, sessions from other projects)
+  // are swept too — their subdirectory name is their wing. The gate matters:
+  // an absent or too-old mempalace must mean no mine runs at all.
   ready.then(async (ok) => {
-    if (!ok) return
+    if (!ok || !(await gate)) return
     const leftovers = await readdir(dir).catch(() => [])
     if (leftovers.some((f) => f.endsWith(".jsonl"))) {
       log(`startup: ${leftovers.length} exchange file(s) pending, scheduling mine`)
       miner.schedule()
+    }
+    const siblings = await readdir(o.exportsDir, { withFileTypes: true }).catch(() => [])
+    for (const e of siblings) {
+      const subdir = path.join(o.exportsDir, e.name)
+      if (!e.isDirectory() || subdir === dir) continue
+      const files = await readdir(subdir).catch(() => [])
+      if (files.some((f) => f.endsWith(".jsonl"))) {
+        log(`startup: pending exchanges in foreign wing ${e.name}, queueing mine`)
+        void miner.enqueue(subdir, e.name)
+      }
     }
   })
   return {
@@ -132,7 +145,10 @@ export function createCapture(o: Options, miner: Miner, log: Logger): Capture {
         log(`skip ${input.sessionID}: agent "${input.agentID}" not in [${o.agents.join(", ")}]`)
         return
       }
-      if (input.outcome !== "completed") return
+      if (input.outcome !== "completed") {
+        log(`skip ${input.sessionID}: outcome=${input.outcome}, only completed turns are saved`)
+        return
+      }
       const assistant = input.finalText?.trim()
       if (!assistant) return
       const trajectory = input.trajectory ?? []

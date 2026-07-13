@@ -72,6 +72,33 @@ describe("createInjector", () => {
     expect(out.system).toEqual([])
   })
 
+  test("parallel steps racing a slow search share one spawn", async () => {
+    const counter = path.join(await mkdtemp(path.join(os.tmpdir(), "mm-cnt-")), "hits.txt")
+    const f = await fakeSearchBin(`echo "hit" >> "${counter}"\nsleep 0.3\ncat <<'EOF'\n${RESULT}\nEOF`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+    inj.onChatMessage("s1", userMessage("same question"))
+    const a = { system: [] as string[] }
+    const b = { system: [] as string[] }
+    await Promise.all([inj.onSystemTransform("s1", a), inj.onSystemTransform("s1", b)])
+    const hits = (await Bun.file(counter).text()).trim().split("\n").length
+    expect(hits).toBe(1)
+    expect(a.system[0]).toContain("payments.yaml")
+    expect(b.system[0]).toContain("payments.yaml")
+  })
+
+  test("a failing search is cached too: later steps of the turn skip the spawn", async () => {
+    const counter = path.join(await mkdtemp(path.join(os.tmpdir(), "mm-cnt-")), "hits.txt")
+    const f = await fakeSearchBin(`echo "hit" >> "${counter}"\nexit 3`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+    inj.onChatMessage("s1", userMessage("same question"))
+    await inj.onSystemTransform("s1", { system: [] })
+    await inj.onSystemTransform("s1", { system: [] })
+    const hits = (await Bun.file(counter).text()).trim().split("\n").length
+    expect(hits).toBe(1)
+  })
+
   test("synthetic parts never become the query", async () => {
     const f = await fakeSearchBin(`echo`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
