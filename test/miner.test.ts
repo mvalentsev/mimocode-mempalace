@@ -38,7 +38,13 @@ describe("args", () => {
   const o = resolveOptions({ palace: "/p/palace", wing: "w1", injectResults: 3 }, "/p/x")
   test("global --palace precedes the subcommand", () => {
     expect(searchArgs(o, "q")).toEqual(["--palace", "/p/palace", "search", "q", "--results", "3", "--wing", "w1"])
-    expect(mineArgs(o, "/dir")).toEqual(["--palace", "/p/palace", "mine", "/dir", "--mode", "convos", "--wing", "w1"])
+    expect(mineArgs(o, "/dir")).toEqual([
+      "--palace", "/p/palace", "mine", "/dir", "--mode", "convos", "--agent", "mimocode", "--wing", "w1",
+    ])
+  })
+  test("wing override for foreign-wing runs", () => {
+    expect(mineArgs(o, "/dir", "other")).toContain("other")
+    expect(mineArgs(o, "/dir", false)).not.toContain("--wing")
   })
   test("wing=false omits the flag", () => {
     const off = resolveOptions({ palace: "/p/palace", wing: false }, "/p/x")

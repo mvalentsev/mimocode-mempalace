@@ -77,4 +77,28 @@ describe("new options", () => {
     expect(junk.searchScope).toBe("wing")
     expect(junk.captureMode).toBe("exchange")
   })
+
+  test("backfill: off by default, true, session count, junk", () => {
+    expect(resolveOptions(undefined, "/p/x").backfill).toBe(false)
+    expect(resolveOptions({ backfill: true }, "/p/x").backfill).toBe(true)
+    expect(resolveOptions({ backfill: 25.9 }, "/p/x").backfill).toBe(25)
+    expect(resolveOptions({ backfill: -1 }, "/p/x").backfill).toBe(false)
+    expect(resolveOptions({ backfill: "all" }, "/p/x").backfill).toBe(false)
+  })
+
+  test("mineAgent and mimoDb defaults and overrides", () => {
+    const o = resolveOptions(undefined, "/p/x")
+    expect(o.mineAgent).toBe("mimocode")
+    expect(o.mimoDb.endsWith(path.join("mimocode", "mimocode.db"))).toBe(true)
+    const c = resolveOptions({ mineAgent: "michael", mimoDb: "~/elsewhere.db" }, "/p/x")
+    expect(c.mineAgent).toBe("michael")
+    expect(c.mimoDb).toBe(path.join(os.homedir(), "elsewhere.db"))
+  })
+
+  test("wingAuto reflects how wing was chosen", () => {
+    expect(resolveOptions(undefined, "/p/x").wingAuto).toBe(true)
+    expect(resolveOptions({ wing: "auto" }, "/p/x").wingAuto).toBe(true)
+    expect(resolveOptions({ wing: "pin" }, "/p/x").wingAuto).toBe(false)
+    expect(resolveOptions({ wing: false }, "/p/x").wingAuto).toBe(false)
+  })
 })

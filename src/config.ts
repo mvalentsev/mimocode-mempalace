@@ -8,6 +8,8 @@ export type Options = {
   bin: string
   /** Wing for captured exchanges: "auto" scopes by project directory name, a string pins one wing, false disables wing scoping. */
   wing: string | false
+  /** True when wing came from "auto": backfill then scopes each session by its own project directory. */
+  wingAuto: boolean
   /** Search scope for injection: "wing" stays inside the project wing, "palace" searches everything. */
   searchScope: "wing" | "palace"
   /** "exchange" saves question + final answer; "turn" also keeps intermediate assistant replies of the turn. */
@@ -30,6 +32,12 @@ export type Options = {
   mineDebounceMs: number
   /** Kill a mine run that runs longer than this. */
   mineTimeoutMs: number
+  /** Agent name recorded on every mined drawer (`mempalace mine --agent`). */
+  mineAgent: string
+  /** Import past MiMoCode sessions from its SQLite db once: false, true (all), or the N most recent sessions. */
+  backfill: boolean | number
+  /** MiMoCode SQLite database backfill reads from. */
+  mimoDb: string
   /** Where captured exchange transcripts are written. */
   exportsDir: string
   /** Agent slices to capture; the top-level loop is "main". */
@@ -41,6 +49,8 @@ export type Options = {
 const dataHome = () => process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share")
 
 export const defaultDataDir = () => path.join(dataHome(), "mimocode-mempalace")
+
+export const defaultMimoDb = () => path.join(dataHome(), "mimocode", "mimocode.db")
 
 const expandHome = (p: string) => (p === "~" || p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p)
 
@@ -61,9 +71,10 @@ export function slugifyWing(raw: string) {
 
 export function resolveOptions(raw: Record<string, unknown> | undefined, projectDir: string): Options {
   const o = raw ?? {}
+  const wingAuto = o.wing !== false && !(typeof o.wing === "string" && o.wing.trim() && o.wing !== "auto")
   const wing = (() => {
     if (o.wing === false) return false as const
-    if (typeof o.wing === "string" && o.wing.trim() && o.wing !== "auto") return slugifyWing(o.wing)
+    if (!wingAuto) return slugifyWing(o.wing as string)
     return slugifyWing(path.basename(projectDir || "") || "unsorted")
   })()
   const identityFile = (() => {
@@ -78,6 +89,7 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
     palace: str(o.palace, path.join(defaultDataDir(), "palace")),
     bin: str(o.bin, "mempalace"),
     wing,
+    wingAuto,
     searchScope: o.searchScope === "palace" ? "palace" : "wing",
     captureMode: o.captureMode === "turn" ? "turn" : "exchange",
     cleanupAfterMine: bool(o.cleanupAfterMine, false),
@@ -89,6 +101,11 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
     searchTimeoutMs: num(o.searchTimeoutMs, 10000),
     mineDebounceMs: num(o.mineDebounceMs, 3000),
     mineTimeoutMs: num(o.mineTimeoutMs, 120000),
+    mineAgent: str(o.mineAgent, "mimocode"),
+    backfill: typeof o.backfill === "number" && Number.isFinite(o.backfill) && o.backfill > 0
+      ? Math.floor(o.backfill)
+      : o.backfill === true,
+    mimoDb: str(o.mimoDb, defaultMimoDb()),
     exportsDir: str(o.exportsDir, path.join(defaultDataDir(), "exchanges")),
     agents: Array.isArray(o.agents) && o.agents.every((a) => typeof a === "string") ? (o.agents as string[]) : ["main"],
     log,

@@ -47,9 +47,9 @@ export function searchArgs(o: Options, query: string) {
   return args
 }
 
-export function mineArgs(o: Options, dir: string) {
-  const args = ["--palace", o.palace, "mine", dir, "--mode", "convos"]
-  if (o.wing !== false) args.push("--wing", o.wing)
+export function mineArgs(o: Options, dir: string, wing: string | false = o.wing) {
+  const args = ["--palace", o.palace, "mine", dir, "--mode", "convos", "--agent", o.mineAgent]
+  if (wing !== false) args.push("--wing", wing)
   return args
 }
 
@@ -74,6 +74,8 @@ export function extractResults(stdout: string, maxChars: number) {
 export type Miner = {
   /** Mark the exports dir dirty; a mine run fires after the debounce window. */
   schedule: () => void
+  /** Chain a mine of another directory (backfill, foreign-wing sweep) into the same serialized queue. */
+  enqueue: (dir: string, wing: string | false) => Promise<void>
   /** Resolves once every scheduled run has finished (tests and shutdown). */
   flush: () => Promise<void>
 }
@@ -88,33 +90,38 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
   let dirty = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
+  const mineRun = async (target: string, wing: string | false) => {
+    // Snapshot before the run: files that land while mine is in flight are
+    // not covered by it and must survive the cleanup below.
+    const before = o.cleanupAfterMine ? await readdir(target).catch(() => [] as string[]) : []
+    const res = await run(o.bin, mineArgs(o, target, wing), o.mineTimeoutMs)
+    if (!res.ok) {
+      log(`mine failed (code=${res.code} timedOut=${res.timedOut}): ${res.stderr.slice(0, 500)}`)
+      return
+    }
+    log(`mine ok: ${target}`)
+    if (o.cleanupAfterMine) {
+      const gone = await Promise.all(
+        before
+          .filter((f) => f.endsWith(".jsonl"))
+          .map((f) =>
+            unlink(path.join(target, f)).then(
+              () => 1,
+              () => 0,
+            ),
+          ),
+      )
+      const count = gone.reduce((a: number, b) => a + b, 0)
+      if (count) log(`cleanup: removed ${count} mined transcript(s)`)
+    }
+  }
+
   const fire = () => {
     timer = undefined
     if (!dirty) return
     dirty = false
     chain = chain.then(async () => {
-      // Snapshot before the run: files that land while mine is in flight are
-      // not covered by it and must survive the cleanup below.
-      const before = o.cleanupAfterMine ? await readdir(dir).catch(() => [] as string[]) : []
-      const res = await run(o.bin, mineArgs(o, dir), o.mineTimeoutMs)
-      if (!res.ok) log(`mine failed (code=${res.code} timedOut=${res.timedOut}): ${res.stderr.slice(0, 500)}`)
-      if (res.ok) {
-        log(`mine ok: ${dir}`)
-        if (o.cleanupAfterMine) {
-          const gone = await Promise.all(
-            before
-              .filter((f) => f.endsWith(".jsonl"))
-              .map((f) =>
-                unlink(path.join(dir, f)).then(
-                  () => 1,
-                  () => 0,
-                ),
-              ),
-          )
-          const count = gone.reduce((a: number, b) => a + b, 0)
-          if (count) log(`cleanup: removed ${count} mined transcript(s)`)
-        }
-      }
+      await mineRun(dir, o.wing)
       if (dirty && timer === undefined) timer = setTimeout(fire, o.mineDebounceMs)
     })
   }
@@ -123,6 +130,10 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
     schedule: () => {
       dirty = true
       if (timer === undefined) timer = setTimeout(fire, o.mineDebounceMs)
+    },
+    enqueue: (target, wing) => {
+      chain = chain.then(() => mineRun(target, wing))
+      return chain
     },
     flush: async () => {
       while (timer !== undefined || dirty) {

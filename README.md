@@ -21,7 +21,7 @@ Read side:
 2. `experimental.chat.system.transform` runs `mempalace search` with that text and appends a `# Long-term memory (MemPalace)` section to the system prompt: your identity file (optional) plus the top matching memories.
 3. Results are cached per query for two minutes, so the multi-step tool loop of a single turn costs one search, not five.
 
-Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs once and stays out of the way; your session works as if it were not installed.
+Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
 
 Options live right next to the plugin name, in the same file. No side-channel config files.
 
-3. Restart MiMoCode. The first start is slower while MiMoCode installs the plugin; later starts are instant.
+3. Restart MiMoCode. The very first start can take a while as MiMoCode sets the plugin up; after that the plugin is ready within a few seconds of startup.
 
 To try it from a checkout instead of npm, use the absolute repo path as the plugin name:
 
@@ -71,7 +71,7 @@ To try it from a checkout instead of npm, use the absolute repo path as the plug
 |---|---|---|
 | `palace` | `~/.local/share/mimocode-mempalace/palace` | Palace directory (create it with `mempalace init`) |
 | `bin` | `mempalace` | mempalace executable, if not on PATH |
-| `wing` | `"auto"` | `"auto"` scopes memories per project directory name; a string pins one wing for everything; `false` disables wing scoping |
+| `wing` | `"auto"` | `"auto"` scopes memories per project directory name; a string pins one wing for everything; `false` drops per-project scoping — exchanges land in a shared `unsorted` wing and search is palace-wide |
 | `searchScope` | `"wing"` | `"wing"` keeps recall inside the current project; `"palace"` searches across all projects ("how did I solve this in that other repo?") |
 | `captureMode` | `"exchange"` | `"exchange"` saves question + final answer; `"turn"` also keeps the intermediate assistant replies of the turn (tool-loop reasoning) |
 | `cleanupAfterMine` | `false` | Delete exchange transcripts once they are mined; by default they stay as a plain-text journal |
@@ -83,9 +83,28 @@ To try it from a checkout instead of npm, use the absolute repo path as the plug
 | `searchTimeoutMs` | `10000` | Search budget per query; on timeout the turn simply runs without memories |
 | `mineDebounceMs` | `3000` | Quiet window before captured exchanges are mined in one batch |
 | `mineTimeoutMs` | `120000` | Mine run budget |
+| `mineAgent` | `"mimocode"` | Agent name mempalace records on every mined drawer |
+| `backfill` | `false` | Import past MiMoCode sessions once: `true` for all, a number for the N most recent (see below) |
+| `mimoDb` | `~/.local/share/mimocode/mimocode.db` | MiMoCode's SQLite database, read by `backfill` |
 | `exportsDir` | `~/.local/share/mimocode-mempalace/exchanges` | Where exchange transcripts are kept |
 | `agents` | `["main"]` | Agent slices to capture |
 | `log` | `false` | `true` logs to `~/.local/share/mimocode-mempalace/plugin.log`, a string sets a custom path |
+
+## Import your past sessions
+
+Everything above only covers turns completed while the plugin is running. MiMoCode also keeps your whole history in a SQLite database, and the plugin can file it into the palace once:
+
+```json
+{
+  "plugin": [
+    ["mimocode-mempalace", { "palace": "~/mimo-memory", "backfill": 50 }]
+  ]
+}
+```
+
+On the next start the plugin reads the database (read-only; a live MiMoCode is fine, the db is in WAL mode), exports your past top-level sessions as transcripts — each scoped to the wing of the project it belonged to — and mines them. Subagent slices and hook-injected turns are filtered out, and sessions the plugin has already captured are skipped. `true` imports everything; a number imports the N most recent sessions.
+
+Backfill runs once: it drops a `.backfill-done.json` marker next to the exchange transcripts and skips itself afterwards. Delete the marker to run it again. Best switched on right when you install the plugin.
 
 ## Active memory: MCP and the knowledge graph
 
@@ -143,6 +162,8 @@ Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempal
 - `mempalace unavailable` means the binary isn't on the PATH MiMoCode runs with; set `bin` to an absolute path.
 - `palace is empty until the first exchange is mined` is normal on a fresh palace; it goes away after your first completed turn.
 - `skip <session>: agent "..." not in [main]` shows the subagent filter doing its job.
+- `search failed (code=143 timedOut=true)` under load: on a small machine a mine running in parallel can push a search past `searchTimeoutMs`; that turn just runs without memories. Raise `searchTimeoutMs` if it keeps happening.
+- `backfill: exported N session(s) ...` reports the one-time history import; `backfill skipped: ...` names the reason (missing or unreadable database, unexpected schema).
 
 ## Development
 
