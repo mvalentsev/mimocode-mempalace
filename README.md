@@ -8,11 +8,14 @@
 <p align="center">
   <a href="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml"><img src="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.npmjs.com/package/mimocode-mempalace"><img src="https://img.shields.io/npm/v/mimocode-mempalace" alt="npm version"></a>
+  <a href="https://github.com/XiaomiMiMo/MiMo-Code"><img src="https://img.shields.io/badge/MiMoCode-%E2%89%A50.1.5-8250df" alt="MiMoCode 0.1.5 or later"></a>
+  <a href="https://github.com/MemPalace/mempalace"><img src="https://img.shields.io/badge/MemPalace-%E2%89%A53.3.5-8250df" alt="MemPalace 3.3.5 or later"></a>
   <img src="https://img.shields.io/badge/runtime_deps-0-2ea44f" alt="zero runtime dependencies">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
 <p align="center">
+  <a href="#how-it-works">How it works</a> ·
   <a href="#setup">Setup</a> ·
   <a href="#options">Options</a> ·
   <a href="#import-your-past-sessions">Import history</a> ·
@@ -192,18 +195,30 @@ Relevant memories already arrive in the system prompt under "Long-term memory
 
 ## Troubleshooting
 
-Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempalace/plugin.log`:
+Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempalace/plugin.log`.
+
+### The plugin
 
 - `ready: MemPalace X.Y.Z, palace=..., wing=...` means the plugin found everything.
-- The log file does not exist at all: the plugin never ran. Check that MiMoCode is 0.1.5 or later, give the very first start time to finish downloading the package, and make sure the `plugin` entry sits in a config MiMoCode actually reads (`~/.config/mimocode/mimocode.json`, or `.mimocode/mimocode.json` of the project you launched it in). A broken or empty `mimocode-mempalace@latest` folder under `~/.cache/mimocode/packages/` blocks the install from being retried — delete that folder and restart. When in doubt, read MiMoCode's own log — the newest file in `~/.local/share/mimocode/log/`: `service=plugin` lines show the plugin being picked up (`loading plugin`) or the exact install error (`failed to install plugin`, usually the road to registry.npmjs.org); no `service=plugin` lines at all means MiMoCode never picked the plugin up from that config — run `env | grep -iE 'mimocode|xdg'` and look for `MIMOCODE_HOME` (relocates every path, config included) or `MIMOCODE_PURE` (turns off external plugins).
+- The log file does not exist at all: the plugin never ran.
+  - Check that MiMoCode is 0.1.5 or later, and give the very first start time to finish downloading the package.
+  - Make sure the `plugin` entry sits in a config MiMoCode actually reads (`~/.config/mimocode/mimocode.json`, or `.mimocode/mimocode.json` of the project you launched it in).
+  - A broken or empty `mimocode-mempalace@latest` folder under `~/.cache/mimocode/packages/` blocks the install from being retried — delete that folder and restart.
+  - When in doubt, read MiMoCode's own log — the newest file in `~/.local/share/mimocode/log/`. `service=plugin` lines show the plugin being picked up (`loading plugin`) or the exact install error (`failed to install plugin`, usually the road to registry.npmjs.org). No `service=plugin` lines at all means MiMoCode never picked the plugin up from that config — run `env | grep -iE 'mimocode|xdg'` and look for `MIMOCODE_HOME` (relocates every path, config included) or `MIMOCODE_PURE` (turns off external plugins).
 - `mempalace unavailable` means the binary isn't on the PATH MiMoCode runs with; set `bin` to an absolute path.
-- `palace is empty until the first exchange is mined` is normal on a fresh palace; it goes away after your first completed turn. In the same state the MCP `mempalace_mempalace_search` answers `No palace found` with a hint to run `mempalace mine` yourself — don't: the plugin mines for you, and a bare CLI `mine` is how palaces get split (see the last item below).
+- `palace is empty until the first exchange is mined` is normal on a fresh palace; it goes away after your first completed turn. In the same state the MCP `mempalace_mempalace_search` answers `No palace found` with a hint to run `mempalace mine` yourself — don't: the plugin mines for you, and a bare CLI `mine` is how palaces get split (see [The palace and the CLI](#the-palace-and-the-cli)).
 - `skip <session>: agent "..." not in [main]` shows the subagent filter doing its job.
 - `search failed (code=143 timedOut=true)` under load: on a small machine a mine running in parallel can push a search past `searchTimeoutMs`; that turn just runs without memories. Raise `searchTimeoutMs` if it keeps happening.
 - `backfill: exported N session(s) ...` reports the one-time history import; `backfill skipped: ...` names the reason (missing or unreadable database, unexpected schema).
+
+### The MCP server
+
 - No `mempalace_mempalace_*` tools in the session: the `mcp` block is missing from the config MiMoCode actually read, or was added without a restart — servers are picked up at startup. Also check that the first `command` entry is a real file (`which mempalace-mcp` prints it) and that both paths are absolute; `~` is not expanded inside `command`. The `service=mcp` lines in MiMoCode's own log tell the story: `found` means the config entry was read, `local mcp startup failed` means the `command` doesn't start.
 - MiMoCode's log shows `MCP error -32601: Unknown method: resources/list` (and `prompts/list`) for `mempalace` right after `toolCount=35 create() successfully created client`: harmless noise. The server implements tools only, and MiMoCode probes the optional resources and prompts APIs anyway; the client is already connected by that point.
 - MCP tools worked earlier in the session but now every call fails with `Not connected`: the server process died or was killed, and MiMoCode does not reconnect it within a running session. Restart MiMoCode.
+
+### The palace and the CLI
+
 - `Search error: Error executing plan: Internal error: Error finding id` means the palace directory references vector segment folders it does not contain. The palace is the whole directory, not just the database file: ChromaDB keeps vectors in `<uuid>/` folders next to `chroma.sqlite3`. This is what symlinking `chroma.sqlite3` into a second directory produces — and one search from the wrong root is enough to break search from the real one too (the plugin logs `palace warning: chroma.sqlite3 ... is a symlink` when it spots this). Keep one real palace directory, point every consumer at it, and run `mempalace repair --yes --palace <dir>` to rebuild the index.
 - Maintaining the palace from the CLI: a bare `mempalace` command without `--palace` targets the default palace (from `~/.mempalace/config.json`, else `~/.mempalace/palace`) — not the plugin's. Mining or repairing there quietly splits your data across two palaces; always pass `--palace` matching the plugin's `palace` option.
 
