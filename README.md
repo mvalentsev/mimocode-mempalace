@@ -74,6 +74,14 @@ Subagent slices (checkpoint writers, reviewers, title generators) are not captur
 
 ## Setup
 
+The lazy way: paste this into MiMoCode itself —
+
+```text
+Set up https://github.com/mvalentsev/mimocode-mempalace for me, with "log": true
+```
+
+— it reads this page and walks the steps below on its own; that is exactly how this plugin's field installs have happened. Doing it by hand instead:
+
 1. Install MemPalace (needs MiMoCode 0.1.5 or later):
 
 ```bash
