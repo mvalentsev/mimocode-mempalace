@@ -81,7 +81,7 @@ mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
 }
 ```
 
-MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start. Options live right next to the plugin name, in the same file. No side-channel config files.
+MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start — there is nothing to `npm install` yourself. Options live right next to the plugin name, in the same file. No side-channel config files.
 
 To hack on the plugin instead, a checkout works too — use the absolute repo path as the plugin name:
 
@@ -107,7 +107,7 @@ To hack on the plugin instead, a checkout works too — use the absolute repo pa
 | `cleanupAfterMine` | `false` | Delete exchange transcripts once they are mined; by default they stay as a plain-text journal |
 | `capture` | `true` | Save completed turns |
 | `inject` | `true` | Retrieve and inject memories |
-| `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables |
+| `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables. It is one global file injected in every project, so keep it about you, not about the project of the day |
 | `injectResults` | `5` | Search results per injection |
 | `injectMaxChars` | `6000` | Cap on the injected block size |
 | `searchTimeoutMs` | `10000` | Search budget per query; on timeout the turn simply runs without memories |
@@ -182,6 +182,7 @@ Relevant memories already arrive in the system prompt under "Long-term memory
 - Exchange transcripts stay in `exportsDir` after mining. `mempalace mine` is incremental and skips already-filed files; the leftovers double as a plain-text journal of your sessions. Turn on `cleanupAfterMine` if you prefer them gone.
 - A session that exits quickly can outrun the debounced mine. The next plugin start notices pending exchange files and mines them, so nothing is lost.
 - The injected block tells the model to trust current code over old memories when they conflict.
+- The plugin's palace is for conversations. If you also mine a whole codebase with the mempalace CLI, give that its own palace directory: tens of thousands of code drawers crowd conversation hits out of palace-wide searches, and CLI maintenance (`mempalace repair`) takes far longer on a big palace.
 - Vanilla OpenCode isn't a target right now: the capture path is built on MiMoCode's `session.post` hook. For OpenCode, look at [opencode-mempalace-persistence](https://github.com/geco/opencode-mempalace-persistence).
 
 ## Troubleshooting
@@ -194,6 +195,8 @@ Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempal
 - `skip <session>: agent "..." not in [main]` shows the subagent filter doing its job.
 - `search failed (code=143 timedOut=true)` under load: on a small machine a mine running in parallel can push a search past `searchTimeoutMs`; that turn just runs without memories. Raise `searchTimeoutMs` if it keeps happening.
 - `backfill: exported N session(s) ...` reports the one-time history import; `backfill skipped: ...` names the reason (missing or unreadable database, unexpected schema).
+- `Search error: Error executing plan: Internal error: Error finding id` means the palace directory references vector segment folders it does not contain. The palace is the whole directory, not just the database file: ChromaDB keeps vectors in `<uuid>/` folders next to `chroma.sqlite3`. This is what symlinking `chroma.sqlite3` into a second directory produces — and one search from the wrong root is enough to break search from the real one too (the plugin logs `palace warning: chroma.sqlite3 ... is a symlink` when it spots this). Keep one real palace directory, point every consumer at it, and run `mempalace repair --yes --palace <dir>` to rebuild the index.
+- Maintaining the palace from the CLI: a bare `mempalace` command without `--palace` targets the default palace (from `~/.mempalace/config.json`, else `~/.mempalace/palace`) — not the plugin's. Mining or repairing there quietly splits your data across two palaces; always pass `--palace` matching the plugin's `palace` option.
 
 ## Development
 
