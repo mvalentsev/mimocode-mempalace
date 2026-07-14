@@ -6,7 +6,7 @@ Thanks for taking the time. The bar is simple: small, verified changes.
 
 ```bash
 bun install
-bun test            # 60 unit tests run against stubs and temp dirs
+bun test            # unit suite, runs against stubs and temp dirs
 bun run typecheck
 ```
 
