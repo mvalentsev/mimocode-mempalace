@@ -2,6 +2,21 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.1.3] — 2026-07-14
+
+Documentation release; no code changes. This is also the release that brings the reworked README to the npm package page.
+
+### Changed
+
+- Quick start now leads the README: the one-line agent install sits right under the demo, ahead of How it works; the manual Setup is four steps with one `YOU` substitution and the fine print folded away.
+- The Options table opens with a compass line: Setup used `palace` and `log`, everything else tunes a default.
+- Corrections: the MCP block is wired in Setup step 3 (the Active memory section said step 2), and CONTRIBUTING no longer pins a unit-test count that drifts with every PR.
+
+### Added
+
+- A light-theme counterpart to the demo terminal (`demo-light.svg`), themed through `<picture>` like the rest of the visuals.
+- Image assets slimmed by ImgBot — minified SVG, recompressed PNG; rendered pixels verified identical.
+
 ## [0.1.2] — 2026-07-14
 
 Documentation release; no code changes.
@@ -37,6 +52,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.1.3]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.3
 [0.1.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.0
