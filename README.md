@@ -84,7 +84,7 @@ Set up https://github.com/mvalentsev/mimocode-mempalace for me, with "log": true
 
 It reads this page and walks every step of [Setup](#setup) on its own — install MemPalace, create the palace, write the config — then tells you when to restart. That is exactly how this plugin's field installs have happened.
 
-No agent at hand? Setup below is four manual steps.
+Prefer full control over the process? Setup below is four manual steps.
 
 ## Setup
 
