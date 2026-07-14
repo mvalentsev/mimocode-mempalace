@@ -1,3 +1,5 @@
+import { lstat } from "node:fs/promises"
+import path from "path"
 import type { Plugin } from "@mimo-ai/plugin"
 import { resolveOptions } from "./config.ts"
 import { createLogger } from "./log.ts"
@@ -35,6 +37,18 @@ export const server: Plugin = async (input, options) => {
       return false
     }
     log(`ready: ${version}, palace=${o.palace}, wing=${o.wing === false ? "(off)" : o.wing}`)
+    // ChromaDB keeps vectors in segment folders next to the real database file,
+    // so a palace assembled around a symlinked chroma.sqlite3 has documents but
+    // no vectors and searches fail with "Error finding id".
+    void lstat(path.join(o.palace, "chroma.sqlite3"))
+      .then((st) => {
+        if (st.isSymbolicLink()) {
+          log(
+            `palace warning: chroma.sqlite3 in ${o.palace} is a symlink; the palace is the whole directory, searches here fail with "Error finding id" - use one real palace directory`,
+          )
+        }
+      })
+      .catch(() => {})
     return true
   })
 
