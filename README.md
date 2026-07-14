@@ -72,26 +72,23 @@ Read side:
 
 Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
 
-## Requirements
+## Setup
 
-- MiMoCode 0.1.5 or later
-- MemPalace 3.3.5 or later — on anything older the plugin logs `plugin disabled` and neither reads nor writes
+1. Install MemPalace (needs MiMoCode 0.1.5 or later):
 
 ```bash
 uv tool install "mempalace>=3.3.5"
 ```
 
-## Setup
-
-1. Create a palace (once):
+2. Create a palace — the folder your memories live in:
 
 ```bash
 mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
 ```
 
-`init` ends by offering to mine the directory right away — skip that: the folder is empty, and the plugin runs `mempalace mine` itself as you work.
+`init` offers to mine the folder right away — skip that: it's empty, and the plugin runs `mempalace mine` itself as you work.
 
-2. Add the plugin and the MemPalace MCP server to `~/.config/mimocode/mimocode.json` (or a project's `.mimocode/mimocode.json`):
+3. Add both keys to `~/.config/mimocode/mimocode.json`, replacing `YOU` with your username (`whoami` prints it) in the two `command` paths:
 
 ```json
 {
@@ -101,38 +98,47 @@ mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
   "mcp": {
     "mempalace": {
       "type": "local",
-      "command": ["/home/you/.local/bin/mempalace-mcp", "--palace", "/home/you/mimo-memory"],
+      "command": ["/home/YOU/.local/bin/mempalace-mcp", "--palace", "/home/YOU/mimo-memory"],
       "enabled": true
     }
   }
 }
 ```
 
-Two keys, two halves. `plugin` is the memory loop itself — capture and recall into the system prompt. `mcp` hands the model MemPalace tools it can call on its own ([details](#active-memory-mcp-and-the-knowledge-graph)); the plugin works fine without it, so drop that block if you only want the passive loop.
-
-Replace both `/home/you` paths with real absolute ones: `which mempalace-mcp` prints the first, the palace from step 1 is the second. The `command` array is spawned without a shell, so `~` is not expanded there (plugin options like `palace` do expand it).
-
-MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start — there is nothing to `npm install` yourself. Options live right next to the plugin name, in the same file. No side-channel config files.
-
-To hack on the plugin instead, a checkout works too — use the absolute repo path as the plugin name:
-
-```json
-{
-  "plugin": [
-    ["/home/you/src/mimocode-mempalace", { "palace": "~/mimo-memory" }]
-  ]
-}
-```
-
-3. Restart MiMoCode. The very first start can take a while as MiMoCode downloads and sets the plugin up; after that the plugin is ready within a few seconds of startup.
-
-4. Check it took. Logging is on in the config above, so once your first turn completes:
+4. Restart MiMoCode. The first start downloads the plugin and can take a minute; every start after that is seconds. Then check:
 
 ```bash
 tail ~/.local/share/mimocode-mempalace/plugin.log
 ```
 
-`ready: MemPalace X.Y.Z, palace=..., wing=...` means the plugin is up; no log file at all means the plugin never ran — see [Troubleshooting](#troubleshooting). For the MCP half, ask the model to call `mempalace_mempalace_search`: until the first exchange is mined it answers `No palace found`, which is still the wiring working — it turns into real hits once a mined exchange exists. Have sessions from before the plugin? Switch on `backfill` now, it works best right after install (see [Import your past sessions](#import-your-past-sessions)).
+`ready: MemPalace X.Y.Z, palace=..., wing=...` — memory is on. That's the whole install.
+
+<details>
+<summary>What the two keys do, and the fine print</summary>
+
+- `plugin` is the memory loop itself — capture and recall into the system prompt. `mcp` hands the model MemPalace tools it can call on its own ([details](#active-memory-mcp-and-the-knowledge-graph)); the plugin works fine without it, so drop that block if you only want the passive loop.
+- Both `command` paths must be absolute: the array is spawned without a shell, so `~` is not expanded there (plugin options like `palace` do expand it). If your binary is not under `/home/YOU/.local/bin`, `which mempalace-mcp` prints where it is.
+- There is nothing to `npm install` yourself — MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start. Options live right next to the plugin name, in the same file; a project's `.mimocode/mimocode.json` works too. No side-channel config files.
+- On mempalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes.
+- No log file after the restart? The plugin never ran — see [Troubleshooting](#troubleshooting). The MCP `mempalace_mempalace_search` answering `No palace found` on a fresh palace is normal; it turns into real hits after your first completed turn.
+- Have sessions from before the plugin? Switch on `backfill` now, it works best right after install (see [Import your past sessions](#import-your-past-sessions)).
+
+</details>
+
+<details>
+<summary>Hacking on a checkout instead</summary>
+
+Use the absolute repo path as the plugin name:
+
+```json
+{
+  "plugin": [
+    ["/home/YOU/src/mimocode-mempalace", { "palace": "~/mimo-memory" }]
+  ]
+}
+```
+
+</details>
 
 ## Options
 
