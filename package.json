@@ -18,10 +18,15 @@
     "mimocode",
     "mempalace",
     "memory",
+    "long-term-memory",
+    "ai-memory",
+    "llm",
     "plugin",
     "opencode",
     "knowledge-graph",
-    "semantic-search"
+    "semantic-search",
+    "typescript",
+    "bun"
   ],
   "exports": {
     ".": "./src/index.ts",
