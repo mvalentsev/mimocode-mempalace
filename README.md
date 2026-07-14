@@ -27,6 +27,14 @@ Long-term memory for [MiMoCode](https://github.com/XiaomiMiMo/MiMo-Code), backed
 
 MiMoCode ships a solid file-based project memory (MEMORY.md, checkpoints, FTS5 search). This plugin adds the other half: a semantic memory that spans all your sessions and projects. Every completed turn is saved into a MemPalace "palace", and on each new request the most relevant past exchanges are retrieved by meaning, not just keywords, and placed into the system prompt. The model doesn't have to remember to search; the plugin does it for it.
 
+<table align="center">
+  <tr>
+    <td align="center" width="280">🧠<br><strong>Passive recall</strong><br><sub>Memories arrive in the system prompt on their own — no model discipline required. <a href="#how-it-works">How it works</a></sub></td>
+    <td align="center" width="280">🗂️<br><strong>Project wings</strong><br><sub>Exchanges are scoped per project; flip one option for palace-wide recall. <a href="#options">Options</a></sub></td>
+    <td align="center" width="280">🕸️<br><strong>Active memory</strong><br><sub>MCP tools let the model search deeper and write facts to a knowledge graph. <a href="#active-memory-mcp-and-the-knowledge-graph">MCP &amp; KG</a></sub></td>
+  </tr>
+</table>
+
 <p align="center">
   <img src=".github/assets/demo.svg" alt="A fact mentioned once in one session is answered from memory in a later one" width="840">
 </p>
@@ -54,6 +62,13 @@ Read side:
 1. `chat.message` remembers the text you typed.
 2. `experimental.chat.system.transform` runs `mempalace search` with that text and appends a `# Long-term memory (MemPalace)` section to the system prompt: your identity file (optional) plus the top matching memories.
 3. Results are cached per query for two minutes, so the multi-step tool loop of a single turn costs one search, not five.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/recall-dark.svg">
+    <img src=".github/assets/recall-light.svg" alt="The Long-term memory (MemPalace) block as it lands in the system prompt: an optional identity line plus verbatim search hits" width="840">
+  </picture>
+</p>
 
 Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
 

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="400" viewBox="0 0 880 400" role="img" aria-label="What lands in the system prompt: the Long-term memory (MemPalace) block — an optional identity line plus verbatim search hits; example hit from wing gateway answering the staging gateway port question" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+  <text x="48" y="24" font-size="13" fill="#6e7781"># what lands in the system prompt on the next request</text>
+
+  <rect x="48" y="42" width="784" height="336" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="812" y="66" font-size="12" fill="#6e7781" text-anchor="end">system prompt</text>
+
+  <text x="76" y="80" font-size="15" font-weight="700" fill="#6639ba"># Long-term memory (MemPalace)</text>
+
+  <text x="76" y="110" font-size="14" fill="#1f2328">- Call me Sam. Keep answers terse.</text>
+  <text x="812" y="110" font-size="12" fill="#6e7781" text-anchor="end">&#8592; identity.md (optional)</text>
+
+  <text x="76" y="140" font-size="12.5" fill="#57606a">Relevant long-term memories retrieved for the current request (verbatim excerpts</text>
+  <text x="76" y="158" font-size="12.5" fill="#57606a">from past sessions; trust recent code over old memories when they conflict):</text>
+
+  <text x="76" y="190" font-size="14"><tspan fill="#8250df" font-weight="700">[1]</tspan><tspan fill="#1f2328"> gateway / general</tspan></text>
+  <text x="76" y="210" font-size="12.5" fill="#57606a">    Source: session-2026-07-03-gateway.md</text>
+  <text x="76" y="228" font-size="12.5" fill="#57606a">    Match:  cosine_sim=0.734  bm25=2.288</text>
+
+  <text x="76" y="260" font-size="14" fill="#1f2328">    # Staging gateway</text>
+  <text x="76" y="286" font-size="14"><tspan fill="#1f2328">    The staging gateway listens on </tspan><tspan fill="#8250df" font-weight="700">8443</tspan><tspan fill="#1f2328">; it is set in deploy/gateway.toml</tspan></text>
+  <text x="76" y="306" font-size="14" fill="#1f2328">    under listen.port.</text>
+  <text x="76" y="332" font-size="14" fill="#1f2328">    Rolling restarts drain connections for 30s before the port closes.</text>
+</svg>
