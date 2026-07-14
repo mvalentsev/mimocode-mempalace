@@ -71,15 +71,28 @@ uv tool install "mempalace>=3.3.5"
 mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
 ```
 
-2. Add the plugin to `~/.config/mimocode/mimocode.json` (or a project's `.mimocode/mimocode.json`):
+`init` ends by offering to mine the directory right away — skip that: the folder is empty, and the plugin runs `mempalace mine` itself as you work.
+
+2. Add the plugin and the MemPalace MCP server to `~/.config/mimocode/mimocode.json` (or a project's `.mimocode/mimocode.json`):
 
 ```json
 {
   "plugin": [
-    ["mimocode-mempalace", { "palace": "~/mimo-memory" }]
-  ]
+    ["mimocode-mempalace", { "palace": "~/mimo-memory", "log": true }]
+  ],
+  "mcp": {
+    "mempalace": {
+      "type": "local",
+      "command": ["/home/you/.local/bin/mempalace-mcp", "--palace", "/home/you/mimo-memory"],
+      "enabled": true
+    }
+  }
 }
 ```
+
+Two keys, two halves. `plugin` is the memory loop itself — capture and recall into the system prompt. `mcp` hands the model MemPalace tools it can call on its own ([details](#active-memory-mcp-and-the-knowledge-graph)); the plugin works fine without it, so drop that block if you only want the passive loop.
+
+Replace both `/home/you` paths with real absolute ones: `which mempalace-mcp` prints the first, the palace from step 1 is the second. The `command` array is spawned without a shell, so `~` is not expanded there (plugin options like `palace` do expand it).
 
 MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start — there is nothing to `npm install` yourself. Options live right next to the plugin name, in the same file. No side-channel config files.
 
@@ -93,7 +106,15 @@ To hack on the plugin instead, a checkout works too — use the absolute repo pa
 }
 ```
 
-3. Restart MiMoCode. The very first start can take a while as MiMoCode sets the plugin up; after that the plugin is ready within a few seconds of startup.
+3. Restart MiMoCode. The very first start can take a while as MiMoCode downloads and sets the plugin up; after that the plugin is ready within a few seconds of startup.
+
+4. Check it took. Logging is on in the config above, so once your first turn completes:
+
+```bash
+tail ~/.local/share/mimocode-mempalace/plugin.log
+```
+
+`ready: MemPalace X.Y.Z, palace=..., wing=...` means the plugin is up; no log file at all means the plugin never ran — see [Troubleshooting](#troubleshooting). For the MCP half, ask the model to call `mempalace_mempalace_search`: until the first exchange is mined it answers `No palace found`, which is still the wiring working — it turns into real hits once a mined exchange exists. Have sessions from before the plugin? Switch on `backfill` now, it works best right after install (see [Import your past sessions](#import-your-past-sessions)).
 
 ## Options
 
@@ -138,25 +159,9 @@ Backfill runs once: it drops a `.backfill-done.json` marker next to the exchange
 
 ## Active memory: MCP and the knowledge graph
 
-The plugin covers the passive loop: capture and inject, no model discipline required. For active memory, where the model digs deeper on its own, wire the MemPalace MCP server into MiMoCode as well. Both halves share the same palace.
+The plugin covers the passive loop: capture and inject, no model discipline required. The `mcp` block you added in [Setup](#setup) step 2 wires in the active half: the MemPalace MCP server, tools the model calls on its own. Both halves share the same palace.
 
-Add to `mimocode.json` next to the plugin entry:
-
-```json
-{
-  "mcp": {
-    "mempalace": {
-      "type": "local",
-      "command": ["mempalace-mcp", "--palace", "/home/you/mimo-memory"],
-      "enabled": true
-    }
-  }
-}
-```
-
-Use an absolute path in `command`: the args array is spawned without a shell, so `~` isn't expanded there (plugin options do expand it).
-
-MiMoCode prefixes every tool with the server name from the config, so with the entry above the model sees `mempalace_mempalace_search`, `mempalace_mempalace_kg_query`, `mempalace_mempalace_kg_add` and friends. The injected block answers most questions by itself; MCP lets the model follow up when the injected excerpt is not enough, and record durable facts into the knowledge graph.
+MiMoCode prefixes every tool with the server name from the config, so with the `mempalace` entry from Setup the model sees `mempalace_mempalace_search`, `mempalace_mempalace_kg_query`, `mempalace_mempalace_kg_add` and friends. The injected block answers most questions by itself; MCP lets the model follow up when the injected excerpt is not enough, and record durable facts into the knowledge graph.
 
 To make the model actually use the graph, add a rules file (`AGENTS.md` in `~/.config/mimocode/` or your project):
 
@@ -190,11 +195,14 @@ Relevant memories already arrive in the system prompt under "Long-term memory
 Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempalace/plugin.log`:
 
 - `ready: MemPalace X.Y.Z, palace=..., wing=...` means the plugin found everything.
+- The log file does not exist at all: the plugin never ran. Check that MiMoCode is 0.1.5 or later, give the very first start time to finish downloading the package, and make sure the `plugin` entry sits in a config MiMoCode actually reads (`~/.config/mimocode/mimocode.json`, or `.mimocode/mimocode.json` of the project you launched it in). A broken or empty `mimocode-mempalace@latest` folder under `~/.cache/mimocode/packages/` blocks the install from being retried — delete that folder and restart.
 - `mempalace unavailable` means the binary isn't on the PATH MiMoCode runs with; set `bin` to an absolute path.
-- `palace is empty until the first exchange is mined` is normal on a fresh palace; it goes away after your first completed turn.
+- `palace is empty until the first exchange is mined` is normal on a fresh palace; it goes away after your first completed turn. In the same state the MCP `mempalace_mempalace_search` answers `No palace found` with a hint to run `mempalace mine` yourself — don't: the plugin mines for you, and a bare CLI `mine` is how palaces get split (see the last item below).
 - `skip <session>: agent "..." not in [main]` shows the subagent filter doing its job.
 - `search failed (code=143 timedOut=true)` under load: on a small machine a mine running in parallel can push a search past `searchTimeoutMs`; that turn just runs without memories. Raise `searchTimeoutMs` if it keeps happening.
 - `backfill: exported N session(s) ...` reports the one-time history import; `backfill skipped: ...` names the reason (missing or unreadable database, unexpected schema).
+- No `mempalace_mempalace_*` tools in the session: the `mcp` block is missing from the config MiMoCode actually read, or was added without a restart — servers are picked up at startup. Also check that the first `command` entry is a real file (`which mempalace-mcp` prints it) and that both paths are absolute; `~` is not expanded inside `command`.
+- MCP tools worked earlier in the session but now every call fails with `Not connected`: the server process died or was killed, and MiMoCode does not reconnect it within a running session. Restart MiMoCode.
 - `Search error: Error executing plan: Internal error: Error finding id` means the palace directory references vector segment folders it does not contain. The palace is the whole directory, not just the database file: ChromaDB keeps vectors in `<uuid>/` folders next to `chroma.sqlite3`. This is what symlinking `chroma.sqlite3` into a second directory produces — and one search from the wrong root is enough to break search from the real one too (the plugin logs `palace warning: chroma.sqlite3 ... is a symlink` when it spots this). Keep one real palace directory, point every consumer at it, and run `mempalace repair --yes --palace <dir>` to rebuild the index.
 - Maintaining the palace from the CLI: a bare `mempalace` command without `--palace` targets the default palace (from `~/.mempalace/config.json`, else `~/.mempalace/palace`) — not the plugin's. Mining or repairing there quietly splits your data across two palaces; always pass `--palace` matching the plugin's `palace` option.
 
