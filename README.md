@@ -37,7 +37,10 @@ MiMoCode ships a solid file-based project memory (MEMORY.md, checkpoints, FTS5 s
 </table>
 
 <p align="center">
-  <img src=".github/assets/demo.svg" alt="A fact mentioned once in one session is answered from memory in a later one" width="840">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/demo.svg">
+    <img src=".github/assets/demo-light.svg" alt="A fact mentioned once in one session is answered from memory in a later one" width="840">
+  </picture>
 </p>
 
 The same round trip is pinned by [`test/e2e.test.ts`](test/e2e.test.ts) against a real palace: captured in one session, mined, and recalled through the system prompt in the next.
@@ -155,6 +158,8 @@ Use the absolute repo path as the plugin name:
 </details>
 
 ## Options
+
+Setup used two of these — `palace` and `log`; everything else tunes a default.
 
 | Option | Default | Meaning |
 |---|---|---|
