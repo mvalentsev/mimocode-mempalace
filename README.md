@@ -42,6 +42,19 @@ MiMoCode ships a solid file-based project memory (MEMORY.md, checkpoints, FTS5 s
 
 The same round trip is pinned by [`test/e2e.test.ts`](test/e2e.test.ts) against a real palace: captured in one session, mined, and recalled through the system prompt in the next.
 
+## Quick start
+
+> [!TIP]
+> **Don't install anything by hand.** Paste this line into MiMoCode itself:
+
+```text
+Set up https://github.com/mvalentsev/mimocode-mempalace for me, with "log": true
+```
+
+It reads this page and walks every step of [Setup](#setup) on its own — install MemPalace, create the palace, write the config — then tells you when to restart. That is exactly how this plugin's field installs have happened.
+
+Prefer full control over the process? [Setup](#setup) below is four manual steps.
+
 ## How it works
 
 <p align="center">
@@ -72,19 +85,6 @@ Read side:
 </p>
 
 Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
-
-## Quick start
-
-> [!TIP]
-> **Don't install anything by hand.** Paste this line into MiMoCode itself:
-
-```text
-Set up https://github.com/mvalentsev/mimocode-mempalace for me, with "log": true
-```
-
-It reads this page and walks every step of [Setup](#setup) on its own — install MemPalace, create the palace, write the config — then tells you when to restart. That is exactly how this plugin's field installs have happened.
-
-Prefer full control over the process? Setup below is four manual steps.
 
 ## Setup
 
@@ -197,7 +197,7 @@ Backfill runs once: it drops a `.backfill-done.json` marker next to the exchange
 
 ## Active memory: MCP and the knowledge graph
 
-The plugin covers the passive loop: capture and inject, no model discipline required. The `mcp` block you added in [Setup](#setup) step 2 wires in the active half: the MemPalace MCP server, tools the model calls on its own. Both halves share the same palace.
+The plugin covers the passive loop: capture and inject, no model discipline required. The `mcp` block you added in [Setup](#setup) step 3 wires in the active half: the MemPalace MCP server, tools the model calls on its own. Both halves share the same palace.
 
 MiMoCode prefixes every tool with the server name from the config, so with the `mempalace` entry from Setup the model sees `mempalace_mempalace_search`, `mempalace_mempalace_kg_query`, `mempalace_mempalace_kg_add` and friends. The injected block answers most questions by itself; MCP lets the model follow up when the injected excerpt is not enough, and record durable facts into the knowledge graph.
 
