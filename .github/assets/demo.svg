@@ -1,47 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="330" viewBox="0 0 880 330" role="img" aria-label="Demo: a fact mentioned once is recalled by meaning in a later session and answered from memory" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
-  <rect x="0.5" y="0.5" width="879" height="329" rx="12" fill="#0d1117" stroke="#30363d"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="340" viewBox="0 0 880 340" role="img" aria-label="Demo: a fact mentioned once is recalled by meaning in a later session and answered from memory" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+  <defs>
+    <clipPath id="t2"><rect x="34" y="94" width="360" height="24">
+      <animate attributeName="width" values="0;0;360;360" keyTimes="0;0.056;0.156;1" dur="16s" repeatCount="indefinite"/>
+    </rect></clipPath>
+    <clipPath id="t3"><rect x="34" y="120" width="480" height="24">
+      <animate attributeName="width" values="0;0;480;480" keyTimes="0;0.156;0.231;1" dur="16s" repeatCount="indefinite"/>
+    </rect></clipPath>
+    <clipPath id="t7"><rect x="34" y="220" width="462" height="24">
+      <animate attributeName="width" values="0;0;462;462" keyTimes="0;0.4;0.5;1" dur="16s" repeatCount="indefinite"/>
+    </rect></clipPath>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="879" height="339" rx="12" fill="#0d1117" stroke="#30363d"/>
   <line x1="1" y1="40" x2="879" y2="40" stroke="#21262d"/>
   <circle cx="26" cy="20" r="6" fill="#ff5f57"/>
   <circle cx="46" cy="20" r="6" fill="#febc2e"/>
   <circle cx="66" cy="20" r="6" fill="#28c840"/>
   <text x="440" y="25" text-anchor="middle" font-size="13" fill="#7d8590">mimo &#8212; with mimocode-mempalace</text>
+  <text x="856" y="25" text-anchor="end" font-size="12" fill="#484f58">MemPalace 3.5.0</text>
 
   <g font-size="15.5">
-    <text x="36" y="78" fill="#7d8590" opacity="1"># session one &#8212; you mention a fact once
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.5;1" dur="0.8s" begin="0s" fill="freeze"/>
-    </text>
+    <g opacity="1">
+      <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.969;1" dur="16s" repeatCount="indefinite"/>
 
-    <text x="36" y="108" opacity="1"><tspan fill="#a371f7">&#10095;</tspan><tspan fill="#e6edf3"> the staging gateway listens on 8443,</tspan>
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.714;1" dur="1.4s" begin="0s" fill="freeze"/>
-    </text>
-    <text x="36" y="134" fill="#e6edf3" opacity="1">  it's set in deploy/gateway.toml under listen.port
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.81;1" dur="2.1s" begin="0s" fill="freeze"/>
-    </text>
-    <rect x="514" y="121" width="9" height="17" fill="#a371f7" opacity="0">
-      <animate attributeName="opacity" values="1;0" dur="0.5s" begin="1s" repeatCount="5"/>
-    </rect>
+      <text x="36" y="78" fill="#7d8590" opacity="1"># session one &#8212; you mention a fact once
+        <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.019;0.044;1" dur="16s" repeatCount="indefinite"/>
+      </text>
 
-    <text x="36" y="164" opacity="1"><tspan fill="#3fb950">  &#10003;</tspan><tspan fill="#8b949e"> captured &#8212; mine ok (wing: gateway)</tspan>
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.882;1" dur="3.4s" begin="0s" fill="freeze"/>
-    </text>
+      <g clip-path="url(#t2)">
+        <text x="36" y="110"><tspan fill="#a371f7">&#10095;</tspan><tspan fill="#e6edf3"> the staging gateway listens on 8443,</tspan></text>
+      </g>
+      <g clip-path="url(#t3)">
+        <text x="36" y="136" fill="#e6edf3">  it's set in deploy/gateway.toml under listen.port</text>
+      </g>
 
-    <text x="36" y="204" fill="#7d8590" opacity="1"># a later session
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.913;1" dur="4.6s" begin="0s" fill="freeze"/>
-    </text>
+      <text x="36" y="166" opacity="1"><tspan fill="#3fb950">  &#10003;</tspan><tspan fill="#8b949e"> captured &#8212; mine ok (wing: gateway)</tspan>
+        <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.256;0.281;1" dur="16s" repeatCount="indefinite"/>
+      </text>
 
-    <text x="36" y="234" opacity="1"><tspan fill="#a371f7">&#10095;</tspan><tspan fill="#e6edf3"> which port does the staging gateway listen on?</tspan>
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.925;1" dur="5.3s" begin="0s" fill="freeze"/>
-    </text>
-    <rect x="496" y="221" width="9" height="17" fill="#a371f7" opacity="0">
-      <animate attributeName="opacity" values="1;0" dur="0.5s" begin="4.9s" repeatCount="4"/>
-    </rect>
+      <text x="36" y="206" fill="#7d8590" opacity="1"># a later session
+        <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.35;0.375;1" dur="16s" repeatCount="indefinite"/>
+      </text>
 
-    <text x="36" y="262" fill="#8b949e" opacity="1">  &#8627; search hit &#8594; "# Long-term memory (MemPalace)" &#8594; system prompt
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.94;1" dur="6.7s" begin="0s" fill="freeze"/>
-    </text>
+      <g clip-path="url(#t7)">
+        <text x="36" y="236"><tspan fill="#a371f7">&#10095;</tspan><tspan fill="#e6edf3"> which port does the staging gateway listen on?</tspan></text>
+      </g>
 
-    <text x="36" y="296" opacity="1"><tspan fill="#a371f7" font-weight="700">8443</tspan><tspan fill="#e6edf3"> &#8212; set in deploy/gateway.toml under listen.port.</tspan>
-      <animate attributeName="opacity" values="0;0;1" keyTimes="0;0.948;1" dur="7.7s" begin="0s" fill="freeze"/>
-    </text>
+      <text x="36" y="264" fill="#8b949e" opacity="1">  &#8627; search hit &#8594; "# Long-term memory (MemPalace)" &#8594; system prompt
+        <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.525;0.55;1" dur="16s" repeatCount="indefinite"/>
+      </text>
+
+      <text x="36" y="298" opacity="1"><tspan fill="#a371f7" font-weight="700">8443</tspan><tspan fill="#e6edf3"> &#8212; set in deploy/gateway.toml under listen.port.</tspan>
+        <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5875;0.619;1" dur="16s" repeatCount="indefinite"/>
+      </text>
+    </g>
   </g>
 </svg>

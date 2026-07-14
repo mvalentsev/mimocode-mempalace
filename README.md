@@ -32,20 +32,12 @@ The same round trip is pinned by [`test/e2e.test.ts`](test/e2e.test.ts) against 
 
 ## How it works
 
-```mermaid
-flowchart LR
-    subgraph write["every completed turn"]
-        A["session.post"] --> B["transcript file<br>question + final answer"]
-        B --> C["mempalace mine<br>debounced, serialized"]
-    end
-    P[("palace<br>wing per project")]
-    subgraph read["every new request"]
-        D["chat.message"] --> E["mempalace search<br>cached per query"]
-        E --> F["# Long-term memory (MemPalace)<br>in the system prompt"]
-    end
-    C --> P
-    P --> E
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/flow-dark.svg">
+    <img src=".github/assets/flow-light.svg" alt="session.post writes a transcript, mempalace mine files it into the palace; chat.message triggers mempalace search, whose results land in the system prompt" width="840">
+  </picture>
+</p>
 
 Write side:
 
