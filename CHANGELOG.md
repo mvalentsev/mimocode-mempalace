@@ -2,6 +2,20 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.1.2] — 2026-07-14
+
+Documentation release; no code changes.
+
+### Changed
+
+- Setup is a single end-to-end quick start: the MemPalace MCP server is wired in the same config step, `init`'s offer to mine the empty palace is marked skippable, and a final step verifies both the plugin log and the MCP tools.
+- Troubleshooting is grouped by symptom — the plugin, the MCP server, the palace and the CLI — and walks MiMoCode's own log (`service=plugin` / `service=mcp`), including the `MIMOCODE_HOME` and `MIMOCODE_PURE` environment overrides and the harmless resources/prompts probe noise.
+
+### Added
+
+- README: a recall card showing the exact `# Long-term memory (MemPalace)` block as it lands in the system prompt, a feature grid up top, and MiMoCode/MemPalace version badges.
+- npm keywords now match the repository topics.
+
 ## [0.1.1] — 2026-07-14
 
 ### Added
@@ -23,5 +37,6 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.1.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.0
