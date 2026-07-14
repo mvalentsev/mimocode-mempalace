@@ -2,7 +2,7 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
-## [Unreleased]
+## [0.1.1] — 2026-07-14
 
 ### Added
 
@@ -23,5 +23,5 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
-[Unreleased]: https://github.com/mvalentsev/mimocode-mempalace/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.0
