@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#setup">Setup</a> ·
   <a href="#options">Options</a> ·
@@ -72,15 +73,20 @@ Read side:
 
 Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
 
-## Setup
+## Quick start
 
-The lazy way: paste this into MiMoCode itself —
+> [!TIP]
+> **Don't install anything by hand.** Paste this line into MiMoCode itself:
 
 ```text
 Set up https://github.com/mvalentsev/mimocode-mempalace for me, with "log": true
 ```
 
-— it reads this page and walks the steps below on its own; that is exactly how this plugin's field installs have happened. Doing it by hand instead:
+It reads this page and walks every step of [Setup](#setup) on its own — install MemPalace, create the palace, write the config — then tells you when to restart. That is exactly how this plugin's field installs have happened.
+
+No agent at hand? Setup below is four manual steps.
+
+## Setup
 
 1. Install MemPalace (needs MiMoCode 0.1.5 or later):
 
