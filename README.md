@@ -8,8 +8,8 @@
 <p align="center">
   <a href="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml"><img src="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.npmjs.com/package/mimocode-mempalace"><img src="https://img.shields.io/npm/v/mimocode-mempalace" alt="npm version"></a>
-  <a href="https://github.com/XiaomiMiMo/MiMo-Code"><img src="https://img.shields.io/badge/MiMoCode-%E2%89%A50.1.5-8250df" alt="MiMoCode 0.1.5 or later"></a>
-  <a href="https://github.com/MemPalace/mempalace"><img src="https://img.shields.io/badge/MemPalace-%E2%89%A53.3.5-8250df" alt="MemPalace 3.3.5 or later"></a>
+  <a href="https://github.com/XiaomiMiMo/MiMo-Code"><img src="https://img.shields.io/badge/MiMoCode-%E2%89%A50.1.6-8250df" alt="MiMoCode 0.1.6 or later"></a>
+  <a href="https://github.com/MemPalace/mempalace"><img src="https://img.shields.io/badge/MemPalace-%E2%89%A53.6.0-8250df" alt="MemPalace 3.6.0 or later"></a>
   <img src="https://img.shields.io/badge/runtime_deps-0-2ea44f" alt="zero runtime dependencies">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
@@ -91,10 +91,10 @@ Subagent slices (checkpoint writers, reviewers, title generators) are not captur
 
 ## Setup
 
-1. Install MemPalace (needs MiMoCode 0.1.5 or later):
+1. Install MemPalace (the plugin needs MiMoCode 0.1.6 or later):
 
 ```bash
-uv tool install "mempalace>=3.3.5"
+uv tool install "mempalace>=3.6.0"
 ```
 
 2. Create a palace — the folder your memories live in:
@@ -135,8 +135,9 @@ tail ~/.local/share/mimocode-mempalace/plugin.log
 
 - `plugin` is the memory loop itself — capture and recall into the system prompt. `mcp` hands the model MemPalace tools it can call on its own ([details](#active-memory-mcp-and-the-knowledge-graph)); the plugin works fine without it, so drop that block if you only want the passive loop.
 - Both `command` paths must be absolute: the array is spawned without a shell, so `~` is not expanded there (plugin options like `palace` do expand it). If your binary is not under `/home/YOU/.local/bin`, `which mempalace-mcp` prints where it is.
+- MiMoCode reads `mimocode.json` and `mimocode.jsonc` from that directory and merges both, so if you already keep a `mimocode.jsonc`, put the keys there rather than starting a second file.
 - There is nothing to `npm install` yourself — MiMoCode installs the [npm package](https://www.npmjs.com/package/mimocode-mempalace) on the next start. Options live right next to the plugin name, in the same file; a project's `.mimocode/mimocode.json` works too. No side-channel config files.
-- On mempalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes.
+- On mempalace older than 3.6.0 the plugin logs `plugin disabled` and neither reads nor writes.
 - No log file after the restart? The plugin never ran — see [Troubleshooting](#troubleshooting). The MCP `mempalace_mempalace_search` answering `No palace found` on a fresh palace is normal; it turns into real hits after your first completed turn.
 - Have sessions from before the plugin? Switch on `backfill` now, it works best right after install (see [Import your past sessions](#import-your-past-sessions)).
 
@@ -206,6 +207,8 @@ The plugin covers the passive loop: capture and inject, no model discipline requ
 
 MiMoCode prefixes every tool with the server name from the config, so with the `mempalace` entry from Setup the model sees `mempalace_mempalace_search`, `mempalace_mempalace_kg_query`, `mempalace_mempalace_kg_add` and friends. The injected block answers most questions by itself; MCP lets the model follow up when the injected excerpt is not enough, and record durable facts into the knowledge graph.
 
+Part of the graph also builds itself. Since MemPalace 3.6.0 the `mine --mode convos` run behind every captured turn records the paths, symbols and identifiers an exchange mentions, and links a pair of them into a hallway once it recurs across two exchanges — `mempalace hallways --wing <project>` lists them, `mempalace_mempalace_list_hallways` hands the same thing to the model. Those come from what you actually worked on; the `kg_add` facts below stay the deliberate half.
+
 To make the model actually use the graph, add a rules file (`AGENTS.md` in `~/.config/mimocode/` or your project):
 
 ```markdown
@@ -241,7 +244,7 @@ Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempal
 
 - `ready: MemPalace X.Y.Z, palace=..., wing=...` means the plugin found everything.
 - The log file does not exist at all: the plugin never ran.
-  - Check that MiMoCode is 0.1.5 or later, and give the very first start time to finish downloading the package.
+  - Check that MiMoCode is 0.1.6 or later, and give the very first start time to finish downloading the package.
   - Make sure the `plugin` entry sits in a config MiMoCode actually reads (`~/.config/mimocode/mimocode.json`, or `.mimocode/mimocode.json` of the project you launched it in).
   - A broken or empty `mimocode-mempalace@latest` folder under `~/.cache/mimocode/packages/` blocks the install from being retried — delete that folder and restart.
   - When in doubt, read MiMoCode's own log — the newest file in `~/.local/share/mimocode/log/`. `service=plugin` lines show the plugin being picked up (`loading plugin`) or the exact install error (`failed to install plugin`, usually the road to registry.npmjs.org). No `service=plugin` lines at all means MiMoCode never picked the plugin up from that config — run `env | grep -iE 'mimocode|xdg'` and look for `MIMOCODE_HOME` (relocates every path, config included) or `MIMOCODE_PURE` (turns off external plugins).
@@ -254,7 +257,7 @@ Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempal
 ### The MCP server
 
 - No `mempalace_mempalace_*` tools in the session: the `mcp` block is missing from the config MiMoCode actually read, or was added without a restart — servers are picked up at startup. Also check that the first `command` entry is a real file (`which mempalace-mcp` prints it) and that both paths are absolute; `~` is not expanded inside `command`. The `service=mcp` lines in MiMoCode's own log tell the story: `found` means the config entry was read, `local mcp startup failed` means the `command` doesn't start.
-- MiMoCode's log shows `MCP error -32601: Unknown method: resources/list` (and `prompts/list`) for `mempalace` right after `toolCount=35 create() successfully created client`: harmless noise. The server implements tools only, and MiMoCode probes the optional resources and prompts APIs anyway; the client is already connected by that point.
+- MiMoCode's log shows `MCP error -32601: Unknown method: resources/list` (and `prompts/list`) for `mempalace` right after `toolCount=36 create() successfully created client`: harmless noise. The server implements tools only, and MiMoCode probes the optional resources and prompts APIs anyway; the client is already connected by that point.
 - MCP tools worked earlier in the session but now every call fails with `Not connected`: the server process died or was killed, and MiMoCode does not reconnect it within a running session. Restart MiMoCode.
 
 ### The palace and the CLI

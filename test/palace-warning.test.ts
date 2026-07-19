@@ -8,7 +8,7 @@ import plugin from "../src/index.ts"
 const fakeBin = async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "mm-bin-"))
   const bin = path.join(dir, "fake-mempalace")
-  await writeFile(bin, `#!/usr/bin/env bash\necho "MemPalace 3.5.0"\n`)
+  await writeFile(bin, `#!/usr/bin/env bash\necho "MemPalace 3.6.0"\n`)
   await chmod(bin, 0o755)
   return bin
 }
@@ -46,7 +46,7 @@ describe("palace symlink warning", () => {
     await symlink(real, path.join(palace, "chroma.sqlite3"))
 
     const log = await startAndWait(palace, "palace warning")
-    expect(log).toContain("ready: MemPalace 3.5.0")
+    expect(log).toContain("ready: MemPalace 3.6.0")
     expect(log).toContain("palace warning: chroma.sqlite3")
     expect(log).toContain("Error finding id")
   })
@@ -58,7 +58,7 @@ describe("palace symlink warning", () => {
     await writeFile(path.join(palace, "chroma.sqlite3"), "not a real db")
 
     const log = await startAndWait(palace, "ready:")
-    expect(log).toContain("ready: MemPalace 3.5.0")
+    expect(log).toContain("ready: MemPalace 3.6.0")
     expect(log).not.toContain("palace warning")
   })
 
@@ -68,7 +68,7 @@ describe("palace symlink warning", () => {
     await mkdir(palace, { recursive: true })
 
     const log = await startAndWait(palace, "ready:")
-    expect(log).toContain("ready: MemPalace 3.5.0")
+    expect(log).toContain("ready: MemPalace 3.6.0")
     expect(log).not.toContain("palace warning")
   })
 })

@@ -13,7 +13,7 @@ bun run typecheck
 The e2e file (`test/e2e.test.ts`) skips itself unless `mempalace` is on PATH. To run the full cycle — capture, mine, recall against a real palace:
 
 ```bash
-uv tool install "mempalace>=3.3.5"
+uv tool install "mempalace>=3.6.0"
 bun test test/e2e.test.ts
 ```
 

@@ -4,16 +4,16 @@
   "workspaces": {
     "": {
       "devDependencies": {
-        "@mimo-ai/plugin": "0.1.5",
+        "@mimo-ai/plugin": "0.1.6",
         "@types/bun": "^1.2.0",
         "typescript": "^7.0.2",
       },
     },
   },
   "packages": {
-    "@mimo-ai/plugin": ["@mimo-ai/plugin@0.1.5", "", { "dependencies": { "@mimo-ai/sdk": "0.1.5", "effect": "4.0.0-beta.48", "zod": "4.1.8" }, "peerDependencies": { "@opentui/core": ">=0.1.101", "@opentui/solid": ">=0.1.101" }, "optionalPeers": ["@opentui/core", "@opentui/solid"] }, "sha512-LSTFx81jj1mwNFUgA+Vl1xhrfyDlnp/OH8Li0rRkWr9Kg9ccTJdBY5OPxgLcqweZ6fZ0s0CV/F2B8/MoHojkzg=="],
+    "@mimo-ai/plugin": ["@mimo-ai/plugin@0.1.6", "", { "dependencies": { "@mimo-ai/sdk": "0.1.6", "effect": "4.0.0-beta.48", "zod": "4.1.8" }, "peerDependencies": { "@opentui/core": ">=0.1.101", "@opentui/solid": ">=0.1.101" }, "optionalPeers": ["@opentui/core", "@opentui/solid"] }, "sha512-iTCqKs0FIFdYy4lKZuqBaeoHLIeLHgwuRzZmyhy6bbUQekpKoEmR9hMraNhQdFdD8uZK7L5j4GYk5TqaKirQNA=="],
 
-    "@mimo-ai/sdk": ["@mimo-ai/sdk@0.1.5", "", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-aiImGzC0KIDsDVGo2KEZQ0CiEKgu+CczyfiqS/7vRW44Q3+9AdFRoN547GPqvr0cR0Yg+mp2rft7htKIk+yLcg=="],
+    "@mimo-ai/sdk": ["@mimo-ai/sdk@0.1.6", "", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-sOM4b9Pif8FezWdHnaaL1Gj6TKP/7FkkAy36mUmZem3OJdC/CjAjo8ZjMBJEYsQJXiaJ4QizvFbF9hwVtVj+yg=="],
 
     "@msgpackr-extract/msgpackr-extract-darwin-arm64": ["@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ=="],
 

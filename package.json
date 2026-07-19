@@ -42,7 +42,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@mimo-ai/plugin": "0.1.5",
+    "@mimo-ai/plugin": "0.1.6",
     "@types/bun": "^1.2.0",
     "typescript": "^7.0.2"
   }

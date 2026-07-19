@@ -22,7 +22,7 @@ body:
     attributes:
       label: Versions
       description: Plugin / MiMoCode / MemPalace (`mempalace --version`), and your OS.
-      placeholder: "0.1.0 / 0.1.5 / 3.5.0, Ubuntu 24.04"
+      placeholder: "0.1.3 / 0.1.6 / 3.6.0, Ubuntu 24.04"
     validations:
       required: true
   - type: textarea
