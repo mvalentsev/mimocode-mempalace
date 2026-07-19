@@ -2,6 +2,18 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.2.0] — 2026-07-20
+
+### Changed
+
+- **Minimum supported versions are now MemPalace 3.6.0 and MiMoCode 0.1.6.** The version gate refuses anything older (`plugin disabled: MemPalace 3.5.0 is older than 3.6.0; upgrade mempalace`), and the number in that message now comes from the constant instead of a second hardcoded copy. MemPalace 3.6.0 is the release where `mine --mode convos` — the exact call this plugin makes — also derives graph hallways from the entities in the mined exchanges (they appear once an entity pair recurs across two drawers, and `mempalace hallways` lists them), and where transcripts keep the timestamp they were authored at. MiMoCode 0.1.6 is the host the plugin is developed and tested against; `@mimo-ai/plugin` moves to 0.1.6 with it.
+- Docs caught up with what 3.6.0 actually reports: the MCP server now exposes 36 tools, not 35 (the `toolCount=` line in Troubleshooting), and the demo terminal shows `MemPalace 3.6.0`. Setup also notes that MiMoCode merges `mimocode.json` and `mimocode.jsonc` from the same directory, so an existing `.jsonc` config is where the keys belong.
+
+### Added
+
+- A test for the gate itself: below the minimum the plugin logs `plugin disabled` and `session.post` writes no transcript at all; at the minimum it logs `ready:` and captures the turn.
+- The MCP section describes the half of the knowledge graph that fills itself: from 3.6.0 the plugin's own `mine --mode convos` links recurring paths, symbols and identifiers into hallways, listed by `mempalace hallways` or `mempalace_mempalace_list_hallways`.
+
 ## [0.1.3] — 2026-07-14
 
 Documentation release; no code changes. This is also the release that brings the reworked README to the npm package page.
@@ -52,6 +64,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.2.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.0
 [0.1.3]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.3
 [0.1.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.2
 [0.1.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.1
