@@ -5,10 +5,13 @@ import path from "path"
 import type { PluginInput } from "@mimo-ai/plugin"
 import plugin from "../src/index.ts"
 
-const fakeBin = async (version: string) => {
+const fakeBin = async (version: string) => rawBin(`echo "MemPalace ${version}"`)
+
+/** A stub whose --version output is whatever the script prints, warts and all. */
+const rawBin = async (script: string) => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "mm-bin-"))
   const bin = path.join(dir, "fake-mempalace")
-  await writeFile(bin, `#!/usr/bin/env bash\necho "MemPalace ${version}"\n`)
+  await writeFile(bin, `#!/usr/bin/env bash\n${script}\n`)
   await chmod(bin, 0o755)
   return bin
 }
@@ -28,6 +31,28 @@ const turn = {
       parts: [{ type: "text", text: "Which port?" }],
     },
   ],
+}
+
+/** Just the gate: boot against `bin` and return the first verdict it logs. */
+const verdict = async (bin: string) => {
+  const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-gate-"))
+  const logPath = path.join(tmp, "plugin.log")
+  await plugin.server({ directory: path.join(tmp, "proj") } as unknown as PluginInput, {
+    palace: path.join(tmp, "palace"),
+    bin,
+    exportsDir: path.join(tmp, "exchanges"),
+    identityFile: false,
+    capture: false,
+    log: logPath,
+  })
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    const text = await readFile(logPath, "utf8").catch(() => "")
+    if (text.includes("ready:")) return "ready"
+    if (text.includes("plugin disabled")) return "disabled"
+    await Bun.sleep(50)
+  }
+  return "(nothing logged)"
 }
 
 /** Boot the plugin against a mempalace of `version` and run one completed turn. */
@@ -68,6 +93,20 @@ describe("mempalace version gate", () => {
     expect(log).toContain("plugin disabled: MemPalace 3.5.0 is older than 3.6.0; upgrade mempalace")
     expect(log).not.toContain("ready:")
     expect(written).toEqual([])
+  })
+
+  test("a version with a two-digit minor is newer, not older", async () => {
+    expect(await verdict(await fakeBin("3.10.0"))).toBe("ready")
+  })
+
+  test("a warning printed before the version does not fool the gate", async () => {
+    const bin = await rawBin(`echo "A NumPy version >=1.22.4 is required"\necho "MemPalace 3.6.0"`)
+    expect(await verdict(bin)).toBe("ready")
+  })
+
+  test("a version below the minimum is refused however noisy the output", async () => {
+    const bin = await rawBin(`echo "Python 3.11.9"\necho "MemPalace 3.5.0"`)
+    expect(await verdict(bin)).toBe("disabled")
   })
 
   test("the minimum itself is accepted and captures", async () => {

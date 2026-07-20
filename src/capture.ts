@@ -126,7 +126,7 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
     if (!ok || !o.capture || !(await gate)) return
     const state = await readMineState(o.exportsDir)
     const leftovers = await readdir(dir).catch(() => [])
-    const pending = await pendingSince(dir, state[dir] ?? 0, leftovers)
+    const pending = await pendingSince(dir, state[dir], leftovers)
     if (pending) {
       log(`startup: ${pending} exchange file(s) pending, scheduling mine`)
       miner.schedule()
@@ -136,7 +136,7 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
       const subdir = path.join(o.exportsDir, e.name)
       if (!e.isDirectory() || subdir === dir) continue
       const files = await readdir(subdir).catch(() => [])
-      if (await pendingSince(subdir, state[subdir] ?? 0, files)) {
+      if (await pendingSince(subdir, state[subdir], files)) {
         log(`startup: pending exchanges in foreign wing ${e.name}, queueing mine`)
         void miner.enqueue(subdir, e.name)
       }

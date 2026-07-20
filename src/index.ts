@@ -11,9 +11,20 @@ import { runBackfill } from "./backfill.ts"
 /** Anything older is refused: the plugin logs `plugin disabled` and stays inert. */
 const MIN_MEMPALACE = [3, 6, 0] as const
 
-const versionAtLeast = (reported: string, min: readonly [number, number, number]) => {
-  const m = reported.match(/(\d+)\.(\d+)\.(\d+)/)
-  if (!m) return false
+/**
+ * The version mempalace reports, ignoring whatever a wrapper script or a noisy
+ * dependency printed before it: prefer the number next to the product name,
+ * else the last triple in the output. Taking the first triple lets a line like
+ * `A NumPy version >=1.22.4 is required` decide the gate.
+ */
+const parseVersion = (reported: string) => {
+  const named = reported.match(/MemPalace[^\d]{0,16}(\d+)\.(\d+)\.(\d+)/i)
+  if (named) return named
+  const all = [...reported.matchAll(/(\d+)\.(\d+)\.(\d+)/g)]
+  return all[all.length - 1]
+}
+
+const versionAtLeast = (m: RegExpMatchArray, min: readonly [number, number, number]) => {
   const parts = [Number(m[1]), Number(m[2]), Number(m[3])]
   for (let i = 0; i < 3; i++) {
     if (parts[i]! > min[i]!) return true
@@ -31,8 +42,14 @@ export const server: Plugin = async (input, options) => {
       log(`mempalace unavailable (${o.bin}): ${(res.stderr || res.stdout).slice(0, 200)}; plugin is a no-op`)
       return false
     }
-    const version = (res.stdout || res.stderr).trim()
-    if (!versionAtLeast(version, MIN_MEMPALACE)) {
+    const reported = (res.stdout || res.stderr).trim()
+    const parsed = parseVersion(reported)
+    if (!parsed) {
+      log(`plugin disabled: no version in "${reported.slice(0, 120)}"; check the bin option`)
+      return false
+    }
+    const version = parsed[0]
+    if (!versionAtLeast(parsed, MIN_MEMPALACE)) {
       log(`plugin disabled: ${version} is older than ${MIN_MEMPALACE.join(".")}; upgrade mempalace`)
       return false
     }

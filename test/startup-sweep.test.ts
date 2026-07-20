@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, utimes, writeFile } from "node:fs/promises"
 import os from "os"
 import path from "path"
 import { captureDir, createCapture } from "../src/capture.ts"
@@ -17,6 +17,18 @@ const fakeBin = async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "mm-bin-"))
   const bin = path.join(dir, "fake-mempalace")
   await writeFile(bin, `#!/usr/bin/env bash\necho "MemPalace 3.6.0"\n`)
+  await chmod(bin, 0o755)
+  return bin
+}
+
+/** Same stub, except a mine run takes a second; --version stays instant. */
+const slowMineBin = async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "mm-bin-"))
+  const bin = path.join(dir, "fake-mempalace")
+  await writeFile(
+    bin,
+    `#!/usr/bin/env bash\ncase "$*" in *" mine "*) sleep 1 ;; *) echo "MemPalace 3.6.0" ;; esac\n`,
+  )
   await chmod(bin, 0o755)
   return bin
 }
@@ -121,6 +133,47 @@ describe("startup sweep", () => {
     await startAndDrain(o)
     await Bun.sleep(20)
     await writeFile(path.join(tmp, "w1", "session-new-y.jsonl"), "{}\n{}\n")
+
+    const { calls, miner } = recorder()
+    createCapture(o, miner, () => {}, Promise.resolve(true))
+    await until(() => calls.length > 0)
+    expect(calls).toEqual(["schedule"])
+  })
+
+  test("a transcript written while a mine is in flight is swept by the next start", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-sweep-"))
+    await mkdir(path.join(tmp, "w1"), { recursive: true })
+    await writeFile(path.join(tmp, "w1", "session-old-x.jsonl"), "{}\n{}\n")
+    // Answers --version instantly, but takes a second to "mine" - long enough
+    // to land a transcript in the middle of the run.
+    const bin = await slowMineBin()
+    const o = resolveOptions({ exportsDir: tmp, wing: "w1", bin, mineDebounceMs: 10 }, "/p/x")
+
+    const miner = createMiner(o, captureDir(o), () => {})
+    createCapture(o, miner, () => {}, Promise.resolve(true))
+    await Bun.sleep(400)
+    await writeFile(path.join(tmp, "w1", "session-midrun-y.jsonl"), "{}\n{}\n")
+    await miner.flush()
+
+    const { calls, miner: stub } = recorder()
+    createCapture(o, stub, () => {}, Promise.resolve(true))
+    await until(() => calls.length > 0)
+    expect(calls).toEqual(["schedule"])
+  })
+
+  test("a transcript restored with an old timestamp is still swept", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-sweep-"))
+    await mkdir(path.join(tmp, "w1"), { recursive: true })
+    await writeFile(path.join(tmp, "w1", "session-old-x.jsonl"), "{}\n{}\n")
+    const o = resolveOptions({ exportsDir: tmp, wing: "w1", bin: await fakeBin(), mineDebounceMs: 10 }, "/p/x")
+    await startAndDrain(o)
+
+    // tar -x, cp -p and rsync -a all restore the original mtime, which can
+    // predate the mine that filed the rest of the wing.
+    const restored = path.join(tmp, "w1", "session-restored-z.jsonl")
+    await writeFile(restored, "{}\n{}\n")
+    const longAgo = new Date(Date.now() - 24 * 3600_000)
+    await utimes(restored, longAgo, longAgo)
 
     const { calls, miner } = recorder()
     createCapture(o, miner, () => {}, Promise.resolve(true))

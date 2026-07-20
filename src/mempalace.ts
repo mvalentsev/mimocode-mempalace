@@ -102,9 +102,6 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
       return
     }
     log(`mine ok: ${target}`)
-    // Filed as of the moment the run started, so the next startup sweep skips
-    // this directory until a newer transcript lands in it.
-    await markMined(o.exportsDir, target, startedAt).catch((e) => log(`mine state not saved: ${e}`))
     if (o.cleanupAfterMine) {
       const gone = await Promise.all(
         before
@@ -119,6 +116,13 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
       const count = gone.reduce((a: number, b) => a + b, 0)
       if (count) log(`cleanup: removed ${count} mined transcript(s)`)
     }
+    // Filed as of the moment the run started, so the next startup sweep skips
+    // this directory until a newer transcript lands in it. The count is taken
+    // after cleanup, so it describes the directory the next sweep will find.
+    const left = await readdir(target).catch(() => [] as string[])
+    await markMined(o.exportsDir, target, startedAt, left.filter((f) => f.endsWith(".jsonl")).length).catch((e) =>
+      log(`mine state not saved: ${e}`),
+    )
   }
 
   const fire = () => {
