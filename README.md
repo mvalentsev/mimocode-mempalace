@@ -170,7 +170,7 @@ Setup used two of these — `palace` and `log`; everything else tunes a default.
 | `searchScope` | `"wing"` | `"wing"` keeps recall inside the current project; `"palace"` searches across all projects ("how did I solve this in that other repo?") |
 | `captureMode` | `"exchange"` | `"exchange"` saves question + final answer; `"turn"` also keeps the intermediate assistant replies of the turn (tool-loop reasoning) |
 | `cleanupAfterMine` | `false` | Delete exchange transcripts once they are mined; by default they stay as a plain-text journal |
-| `capture` | `true` | Save completed turns |
+| `capture` | `true` | Save completed turns; `false` also keeps the startup sweep from mining leftovers, so the plugin never writes to the palace |
 | `inject` | `true` | Retrieve and inject memories |
 | `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables. It is one global file injected in every project, so keep it about you, not about the project of the day |
 | `injectResults` | `5` | Search results per injection |
@@ -231,7 +231,7 @@ Relevant memories already arrive in the system prompt under "Long-term memory
 
 - Everything is local: exchanges, the palace, the search. Nothing leaves your machine beyond what your model provider already sees in the prompt.
 - Exchange transcripts stay in `exportsDir` after mining. `mempalace mine` is incremental and skips already-filed files; the leftovers double as a plain-text journal of your sessions. Turn on `cleanupAfterMine` if you prefer them gone.
-- A session that exits quickly can outrun the debounced mine. The next plugin start notices pending exchange files and mines them, so nothing is lost.
+- A session that exits quickly can outrun the debounced mine. The next plugin start notices transcripts written since that directory was last mined and files them, so nothing is lost — and a start that has nothing new to file runs no `mempalace mine` at all. The bookkeeping lives in `.mine-state.json` at the root of `exportsDir`; delete it and the next start re-mines every wing, which is safe but slow.
 - The injected block tells the model to trust current code over old memories when they conflict.
 - The plugin's palace is for conversations. If you also mine a whole codebase with the mempalace CLI, give that its own palace directory: tens of thousands of code drawers crowd conversation hits out of palace-wide searches, and CLI maintenance (`mempalace repair`) takes far longer on a big palace.
 - Vanilla OpenCode isn't a target right now: the capture path is built on MiMoCode's `session.post` hook. For OpenCode, look at [opencode-mempalace-persistence](https://github.com/geco/opencode-mempalace-persistence).

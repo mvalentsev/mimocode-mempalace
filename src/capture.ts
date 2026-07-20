@@ -3,6 +3,7 @@ import path from "path"
 import type { Options } from "./config.ts"
 import type { Logger } from "./log.ts"
 import type { Miner } from "./mempalace.ts"
+import { pendingSince, readMineState } from "./mine-state.ts"
 
 type TrajectoryPartLike = {
   type: string
@@ -117,13 +118,17 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
   // A short-lived session can exit before the debounced mine fires, leaving
   // the newest exchange unmined; sweep leftovers on the next startup. Other
   // wings' subdirectories (backfill output, sessions from other projects)
-  // are swept too — their subdirectory name is their wing. The gate matters:
-  // an absent or too-old mempalace must mean no mine runs at all.
+  // are swept too — their subdirectory name is their wing. Transcripts stay on
+  // disk after mining, so "pending" means newer than the last run of that
+  // directory, not merely present. Two gates matter: an absent or too-old
+  // mempalace, and capture turned off — both must mean no mine runs at all.
   ready.then(async (ok) => {
-    if (!ok || !(await gate)) return
+    if (!ok || !o.capture || !(await gate)) return
+    const state = await readMineState(o.exportsDir)
     const leftovers = await readdir(dir).catch(() => [])
-    if (leftovers.some((f) => f.endsWith(".jsonl"))) {
-      log(`startup: ${leftovers.length} exchange file(s) pending, scheduling mine`)
+    const pending = await pendingSince(dir, state[dir] ?? 0, leftovers)
+    if (pending) {
+      log(`startup: ${pending} exchange file(s) pending, scheduling mine`)
       miner.schedule()
     }
     const siblings = await readdir(o.exportsDir, { withFileTypes: true }).catch(() => [])
@@ -131,7 +136,7 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
       const subdir = path.join(o.exportsDir, e.name)
       if (!e.isDirectory() || subdir === dir) continue
       const files = await readdir(subdir).catch(() => [])
-      if (files.some((f) => f.endsWith(".jsonl"))) {
+      if (await pendingSince(subdir, state[subdir] ?? 0, files)) {
         log(`startup: pending exchanges in foreign wing ${e.name}, queueing mine`)
         void miner.enqueue(subdir, e.name)
       }

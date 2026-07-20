@@ -2,6 +2,7 @@ import { readdir, unlink } from "node:fs/promises"
 import path from "path"
 import type { Logger } from "./log.ts"
 import type { Options } from "./config.ts"
+import { markMined } from "./mine-state.ts"
 
 export type RunResult = {
   ok: boolean
@@ -94,12 +95,16 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
     // Snapshot before the run: files that land while mine is in flight are
     // not covered by it and must survive the cleanup below.
     const before = o.cleanupAfterMine ? await readdir(target).catch(() => [] as string[]) : []
+    const startedAt = Date.now()
     const res = await run(o.bin, mineArgs(o, target, wing), o.mineTimeoutMs)
     if (!res.ok) {
       log(`mine failed (code=${res.code} timedOut=${res.timedOut}): ${res.stderr.slice(0, 500)}`)
       return
     }
     log(`mine ok: ${target}`)
+    // Filed as of the moment the run started, so the next startup sweep skips
+    // this directory until a newer transcript lands in it.
+    await markMined(o.exportsDir, target, startedAt).catch((e) => log(`mine state not saved: ${e}`))
     if (o.cleanupAfterMine) {
       const gone = await Promise.all(
         before
