@@ -12,7 +12,17 @@ export type RunResult = {
   timedOut: boolean
 }
 
-/** Run the mempalace CLI with a hard timeout. Never throws. */
+/** How long a finished process gets to have its pipes drained. */
+const STREAM_GRACE_MS = 2000
+/** How long a SIGTERM gets before the process is killed outright. */
+const TERM_GRACE_MS = 300
+
+/**
+ * Run the mempalace CLI with a hard timeout. Never throws, and never waits
+ * longer than the budget: a child that ignores SIGTERM is killed, and a
+ * grandchild holding the pipes open cannot stall the read either. Both of
+ * those otherwise hang the caller forever - and every hook awaits this.
+ */
 export async function run(bin: string, args: string[], timeoutMs: number): Promise<RunResult> {
   try {
     const proc = Bun.spawn([bin, ...args], {
@@ -21,20 +31,26 @@ export async function run(bin: string, args: string[], timeoutMs: number): Promi
       stdin: "ignore",
       env: { ...process.env, PYTHONUNBUFFERED: "1" },
     })
-    let timedOut = false
-    const timer = setTimeout(() => {
-      timedOut = true
-      proc.kill()
-    }, timeoutMs)
     const stdoutP = new Response(proc.stdout).text().catch(() => "")
     const stderrP = new Response(proc.stderr).text().catch(() => "")
-    const code = await proc.exited
-    clearTimeout(timer)
-    // A killed process can leave grandchildren holding the pipes open;
-    // after a timeout the streams get a short grace read instead of a hang.
-    const grace = (p: Promise<string>) => (timedOut ? Promise.race([p, Bun.sleep(300).then(() => "")]) : p)
-    const stdout = await grace(stdoutP)
-    const stderr = await grace(stderrP)
+    const exited = proc.exited.then(() => true)
+    const deadline = <T,>(p: Promise<T>, ms: number, fallback: T) =>
+      Promise.race([p, Bun.sleep(ms).then(() => fallback)])
+
+    let timedOut = false
+    if (!(await deadline(exited, timeoutMs, false))) {
+      timedOut = true
+      proc.kill()
+      if (!(await deadline(exited, TERM_GRACE_MS, false))) {
+        proc.kill("SIGKILL")
+        await deadline(exited, TERM_GRACE_MS, false)
+      }
+    }
+    const code = proc.exitCode
+    const [stdout, stderr] = await Promise.all([
+      deadline(stdoutP, STREAM_GRACE_MS, ""),
+      deadline(stderrP, STREAM_GRACE_MS, ""),
+    ])
     return { ok: code === 0 && !timedOut, code, stdout, stderr, timedOut }
   } catch (e) {
     return { ok: false, code: null, stdout: "", stderr: String(e), timedOut: false }
@@ -59,8 +75,15 @@ export function mineArgs(o: Options, dir: string, wing: string | false = o.wing)
  * Empty palaces and misses produce no `[1]` marker, which is the "no results" signal.
  */
 export function extractResults(stdout: string, maxChars: number) {
-  const start = stdout.indexOf("[1]")
-  if (start === -1) return ""
+  // mempalace echoes the query above its results, so a question containing
+  // "[1]" (argv[1], worker[1], a footnote) would otherwise be sliced out of
+  // the echo and handed to the model as somebody's past memory. Skip the
+  // echoed header, then require the marker to open its own line.
+  const header = [...stdout.matchAll(/^.*Results for:.*$/gm)].pop()
+  const offset = header?.index !== undefined ? header.index + header[0].length : 0
+  const marker = stdout.slice(offset).match(/^([ \t]*)\[1\]/m)
+  if (marker?.index === undefined) return ""
+  const start = offset + marker.index + marker[1]!.length
   const body = stdout
     .slice(start)
     .replace(/[═─]{4,}/g, "")

@@ -32,6 +32,26 @@ describe("run", () => {
     const res = await run("/nonexistent/mempalace-xyz", ["--version"], 1000)
     expect(res.ok).toBe(false)
   })
+
+  test("a grandchild holding the pipe cannot outlast the timeout", async () => {
+    // The child exits at once but leaves a background process on stdout, so
+    // the stream never ends on its own.
+    const f = await fakeBin(`( sleep 8 ) &\necho hi\nexit 0`)
+    const t0 = Date.now()
+    await run(f.bin, [], 500)
+    // The child's grandchild lives 8s; anything under that proves the read
+    // was bounded, with slack for a loaded CI box.
+    expect(Date.now() - t0).toBeLessThan(6000)
+  })
+
+  test("a child that ignores SIGTERM is still killed", async () => {
+    const f = await fakeBin(`trap '' TERM\nsleep 8`)
+    const t0 = Date.now()
+    const res = await run(f.bin, [], 400)
+    expect(Date.now() - t0).toBeLessThan(6000)
+    expect(res.timedOut).toBe(true)
+    expect(res.ok).toBe(false)
+  })
 })
 
 describe("args", () => {
@@ -77,6 +97,30 @@ describe("extractResults", () => {
   })
   test("no [1] marker means no results", () => {
     expect(extractResults("  No results found.\n", 6000)).toBe("")
+  })
+  test("a query echoed back with [1] in it is not mistaken for a result", () => {
+    const miss = `
+============================================================
+  No results found for: "why does worker[1] drop the retry flag?"
+============================================================
+`
+    expect(extractResults(miss, 6000)).toBe("")
+  })
+  test("results start at the real marker, not at the echoed query", () => {
+    const hit = `
+============================================================
+  Results for: "does worker[1] drop the flag"
+============================================================
+
+  [1] gateway / technical
+      Source: session-9.jsonl
+
+      > why does worker[1] drop it?
+      Because the flag resets on reconnect.
+`
+    const got = extractResults(hit, 6000)
+    expect(got.startsWith("[1] gateway")).toBe(true)
+    expect(got).not.toContain("Results for")
   })
   test("truncates on a line boundary", () => {
     const got = extractResults(sample, 60)
