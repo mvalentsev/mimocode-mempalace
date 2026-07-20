@@ -2,6 +2,31 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.3.0] — 2026-07-20
+
+Two adversarial passes over the code this release cycle had not touched — recall and write paths — turned up the defects below. Every one is pinned by a test that fails when the fix is reverted.
+
+### Fixed
+
+- **A question containing `[1]` could come back as somebody's memory.** `extractResults` sliced from the first `[1]` anywhere in the output, and mempalace echoes the query above its results, so asking about `argv[1]` or `worker[1]` injected a fragment of the current question under "verbatim excerpts from past sessions" — even when the search matched nothing. The marker must now open its own line, after the echoed header.
+- **`run()` had no hard timeout despite promising one.** A child that exits cleanly while a grandchild holds the pipe, or a child that ignores SIGTERM, blocked the call forever: a 500 ms budget measured 8 s. When it happens to the `--version` probe, the availability promise never settles and `system.transform` and `session.post` — which await it — stall for the rest of the session with an empty log. The wait now races the deadline, escalates to `SIGKILL`, and bounds the pipe drain.
+- **Projects whose names are entirely non-Latin shared one wing.** `slugifyWing` dropped every non-`[a-z0-9_-]` character, so a Cyrillic and a CJK project both became `unsorted` and read each other's memories out of the same wing. Such names now get a `w-<digest>` wing of their own; Latin names keep the wing they always had.
+- **A failed search was cached for two minutes, across every session.** One locked backend or one timeout silenced memory process-wide until the TTL expired, and the retry logged nothing. Completed searches still cache (a genuine miss included) so one turn costs one spawn; failures do not.
+- **A completed turn with no text in its final message was dropped silently.** It is now logged, and in `captureMode: "turn"` the trajectory is saved instead of thrown away.
+- **`backfill` froze the host.** The whole history was parsed synchronously on MiMoCode's event loop — ~12 s on a week-old database, 1.7 s even at `backfill: 50` — with the UI and every other plugin dead meanwhile. The scan and the export now yield between sessions. A wing that cannot be written no longer aborts the import and leaves no marker (which repeated the freeze on every start and skipped every session after it); failures are counted, logged, and the marker is written.
+- **`flush()` returned while a scheduled mine was still pending**, so a mine queued during shutdown was left for the next startup sweep.
+- **`cleanupAfterMine` deleted transcripts on exit code alone.** mempalace exits 0 while skipping files it cannot chunk, so those were deleted without ever entering the palace. Cleanup now requires the run's own tally to account for every transcript, and says so when it does not.
+- A turn carrying no text of its own no longer reuses the previous question's memories.
+
+### Changed
+
+- **The log is on by default.** Every failure above is invisible without it, and `"log": false` still turns it off. A search that returns nothing usable, and the host's session-less transform call, now leave a line too.
+- A timed-out search names its budget and the option to raise.
+
+### Added
+
+- An [Updating](README.md#updating) section: MiMoCode resolves `mimocode-mempalace@latest` once and reuses the cached copy forever with no version check, so a new release does not reach an existing install until the cache entry is removed or the version is pinned in the config.
+
 ## [0.2.2] — 2026-07-20
 
 ### Fixed
@@ -82,6 +107,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.3.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.0
 [0.2.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.2
 [0.2.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.1
 [0.2.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.0
