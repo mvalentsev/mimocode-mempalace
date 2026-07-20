@@ -155,12 +155,32 @@ describe("runBackfill", () => {
 describe("extractSessions yields", () => {
   test("does not hold the event loop for the whole scan", async () => {
     const s = await setup()
-    const db = new Database(s.o.mimoDb, { readonly: true })
-    let ticked = false
-    const timer = setTimeout(() => (ticked = true), 0)
-    await extractSessions(db, s.o, NOW, [])
-    clearTimeout(timer)
+    // A four-session fixture scans faster than a timer tick, which says nothing
+    // either way; give the scan enough sessions to be observable.
+    const db = new Database(s.o.mimoDb, { create: true })
+    db.run("BEGIN")
+    for (let i = 0; i < 120; i++) {
+      const sid = `ses_bulk_${i}`
+      db.run(`INSERT INTO session VALUES (?, NULL, '/home/u/bulk', ?)`, [sid, 400 + i])
+      for (const [mid, role, text] of [
+        [`${sid}_u`, "user", "bulk question"],
+        [`${sid}_a`, "assistant", "bulk answer"],
+      ] as const) {
+        db.run(`INSERT INTO message VALUES (?, ?, 'main', ?, ?)`, [mid, sid, 401 + i, JSON.stringify({ role })])
+        db.run(`INSERT INTO part VALUES (?, ?, ?, ?)`, [`p-${mid}`, mid, 401 + i, JSON.stringify({ type: "text", text })])
+      }
+    }
+    db.run("COMMIT")
     db.close()
-    expect(ticked).toBe(true)
+
+    const reader = new Database(s.o.mimoDb, { readonly: true })
+    let ticks = 0
+    const iv = setInterval(() => ticks++, 1)
+    const r = await extractSessions(reader, s.o, NOW, [])
+    clearInterval(iv)
+    reader.close()
+
+    expect(r.sessions).toBeGreaterThan(50)
+    expect(ticks).toBeGreaterThan(0)
   })
 })

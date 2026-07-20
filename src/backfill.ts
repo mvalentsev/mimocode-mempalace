@@ -48,10 +48,12 @@ export async function extractSessions(
   let skippedCaptured = 0
   let skippedEmpty = 0
 
+  let scanned = 0
   for (const s of sessions) {
     // A whole history is thousands of JSON.parse calls on the event loop the
-    // host shares with its UI and every other plugin; yield between sessions.
-    await Bun.sleep(0)
+    // host shares with its UI and every other plugin. Yielding every session
+    // costs more than it saves; every tenth keeps the host responsive.
+    if (++scanned % 10 === 0) await Bun.sleep(0)
     const sid = sanitizeId(s.id)
     if (capturedSessionPrefixes.some((p) => p === sid)) {
       skippedCaptured++
