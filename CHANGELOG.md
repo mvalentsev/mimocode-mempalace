@@ -2,6 +2,17 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.2.2] — 2026-07-20
+
+### Fixed
+
+- **The version gate read whatever dotted triple came first in `mempalace --version`.** A dependency warning (`A NumPy version >=1.22.4 is required`) or a wrapper's banner (`Python 3.11.9`) printed ahead of the real line decided the verdict, and in both directions: a perfectly good 3.6.0 was refused with `plugin disabled: ... is older than 3.6.0` — naming a version that is not older, which sends the reader down the wrong path — while a 3.5.0 sailed through as `ready`. The version is now read next to the product name, falling back to the last triple in the output, and output with no version at all says exactly that instead of blaming the version.
+- **A transcript restored with an old timestamp stayed invisible to the sweep.** 0.2.1 compared mtimes against the journal, so a transcript arriving with an mtime older than the directory's last run was never filed: a restore from backup (`tar -x`, `cp -p` and `rsync -a` all preserve mtime), an `exportsDir` synced between machines, or a clock stepped backwards. The journal now also records how many transcripts a directory held, and a changed count — or a stamp from the future — re-sweeps it. Journals written by 0.2.1 keep working and gain the count at their next mine.
+
+### Added
+
+- Tests for the two invariants the 0.2.1 fix rested on but never covered: a transcript written while a mine is in flight is swept by the next start, and a two-digit minor (3.10.0) counts as newer than 3.6.0. Both are mutation-confirmed — breaking the code makes them fail.
+
 ## [0.2.1] — 2026-07-20
 
 ### Fixed
@@ -71,6 +82,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.2.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.2
 [0.2.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.1
 [0.2.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.0
 [0.1.3]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.3
