@@ -117,6 +117,40 @@ describe("createCapture.onSessionPost", () => {
   })
 })
 
+describe("a completed turn without final text", () => {
+  const setup = async (over: Record<string, unknown> = {}) => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-cap-"))
+    const o = resolveOptions({ exportsDir: tmp, wing: "w1", ...over }, "/p/x")
+    const spy = minerSpy()
+    const logs: string[] = []
+    const capture = createCapture(o, spy.miner, (m) => logs.push(m), Promise.resolve(true))
+    return { capture, logs }
+  }
+
+  test("says why it was skipped instead of vanishing", async () => {
+    const s = await setup()
+    await s.capture.onSessionPost(baseInput({ finalText: "   " }))
+    expect(s.logs.some((l) => l.includes("s1"))).toBe(true)
+  })
+
+  test("turn mode still saves what the trajectory holds", async () => {
+    const s = await setup({ captureMode: "turn" })
+    await s.capture.onSessionPost(
+      baseInput({
+        finalText: "",
+        trajectory: [
+          { role: "user", parts: [textPart("why does the gateway stall?")] },
+          { role: "assistant", parts: [textPart("checking deploy/gateway.toml first")] },
+        ],
+      }),
+    )
+    const files = await readdir(s.capture.dir)
+    expect(files).toEqual(["session-s1-m1.jsonl"])
+    const content = await readFile(path.join(s.capture.dir, files[0]!), "utf8")
+    expect(content).toContain("checking deploy/gateway.toml")
+  })
+})
+
 describe("buildTurnJsonl", () => {
   const traj = [
     { role: "user" as const, parts: [textPart("old question")] },

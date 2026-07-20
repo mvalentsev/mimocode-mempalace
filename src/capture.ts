@@ -153,8 +153,10 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
         log(`skip ${input.sessionID}: outcome=${input.outcome}, only completed turns are saved`)
         return
       }
-      const assistant = input.finalText?.trim()
-      if (!assistant) return
+      // A turn can finish with no text in its final message (a tool-only tail).
+      // In "turn" mode the trajectory still holds a saveable exchange, so try
+      // that before giving up - and whatever happens, say so.
+      const assistant = input.finalText?.trim() ?? ""
       const trajectory = input.trajectory ?? []
       const user = extractLastUserText(trajectory)
       if (!user) {
@@ -163,8 +165,15 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
       }
       const body =
         o.captureMode === "turn"
-          ? (buildTurnJsonl(trajectory, assistant) ?? buildExchangeJsonl(user, assistant))
-          : buildExchangeJsonl(user, assistant)
+          ? (buildTurnJsonl(trajectory, assistant) ??
+            (assistant ? buildExchangeJsonl(user, assistant) : undefined))
+          : assistant
+            ? buildExchangeJsonl(user, assistant)
+            : undefined
+      if (!body) {
+        log(`skip ${input.sessionID}: no assistant text in the final message or the trajectory`)
+        return
+      }
       if (!(await ready)) return
       const file = path.join(dir, exchangeFilename(input.sessionID, input.assistantMessageID))
       await Bun.write(file, body)

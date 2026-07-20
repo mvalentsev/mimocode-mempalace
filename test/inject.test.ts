@@ -87,16 +87,18 @@ describe("createInjector", () => {
     expect(b.system[0]).toContain("payments.yaml")
   })
 
-  test("a failing search is cached too: later steps of the turn skip the spawn", async () => {
+  test("parallel steps of one turn share a failing search, later turns retry it", async () => {
     const counter = path.join(await mkdtemp(path.join(os.tmpdir(), "mm-cnt-")), "hits.txt")
-    const f = await fakeSearchBin(`echo "hit" >> "${counter}"\nexit 3`)
+    const f = await fakeSearchBin(`echo "hit" >> "${counter}"\nsleep 0.2\nexit 3`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
     inj.onChatMessage("s1", userMessage("same question"))
+    // The many LLM steps of one turn overlap and must cost one spawn...
+    await Promise.all([inj.onSystemTransform("s1", { system: [] }), inj.onSystemTransform("s1", { system: [] })])
+    expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(1)
+    // ...but a failure is not remembered, so a later turn asks again.
     await inj.onSystemTransform("s1", { system: [] })
-    await inj.onSystemTransform("s1", { system: [] })
-    const hits = (await Bun.file(counter).text()).trim().split("\n").length
-    expect(hits).toBe(1)
+    expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(2)
   })
 
   test("synthetic parts never become the query", async () => {
@@ -121,5 +123,51 @@ describe("trimQuery via onChatMessage", () => {
     const sent = await Bun.file(counter).text()
     expect(sent.length).toBeLessThanOrEqual(600)
     expect(sent.startsWith("intent words")).toBe(true)
+  })
+})
+
+describe("failures and stale queries", () => {
+  test("a failed search is not cached, so the next turn tries again", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "mm-inj-"))
+    const counter = path.join(dir, "count")
+    // Fails once (backend locked), succeeds afterwards.
+    const f = await fakeSearchBin(
+      `echo x >> "${counter}"\nif [ "$(wc -l < "${counter}")" = "1" ]; then echo "database is locked" >&2; exit 1; fi\ncat <<'EOF'\n${RESULT}\nEOF`,
+    )
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+
+    inj.onChatMessage("s1", userMessage("how is retry configured?"))
+    const first = { system: [] as string[] }
+    await inj.onSystemTransform("s1", first)
+    expect(first.system).toEqual([])
+
+    // A different session, same question, right after the backend recovered.
+    inj.onChatMessage("s2", userMessage("how is retry configured?"))
+    const second = { system: [] as string[] }
+    await inj.onSystemTransform("s2", second)
+    expect(second.system[0]).toContain("payments.yaml")
+  })
+
+  test("a turn with no text of its own does not reuse the previous question", async () => {
+    const f = await fakeSearchBin(`cat <<'EOF'\n${RESULT}\nEOF`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+
+    inj.onChatMessage("s1", userMessage("how is retry configured?"))
+    inj.onChatMessage("s1", { parts: [{ type: "image", text: "" }] } as never)
+    const out = { system: [] as string[] }
+    await inj.onSystemTransform("s1", out)
+    expect(out.system).toEqual([])
+  })
+
+  test("a search that returns nothing usable says so in the log", async () => {
+    const f = await fakeSearchBin(`echo "No memories matched."`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const logs: string[] = []
+    const inj = createInjector(o, (m) => logs.push(m))
+    inj.onChatMessage("s1", userMessage("anything?"))
+    await inj.onSystemTransform("s1", { system: [] as string[] })
+    expect(logs.some((l) => l.includes("no results"))).toBe(true)
   })
 })

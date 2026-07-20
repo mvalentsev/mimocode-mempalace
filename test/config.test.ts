@@ -24,7 +24,7 @@ describe("resolveOptions", () => {
     expect(o.bin).toBe("mempalace")
     expect(o.injectResults).toBe(5)
     expect(o.agents).toEqual(["main"])
-    expect(o.log).toBe(false)
+    expect(o.log).toBe(true)
     expect(o.palace).toContain("mimocode-mempalace")
   })
 
@@ -52,6 +52,7 @@ describe("resolveOptions", () => {
 
   test("log accepts boolean or path", () => {
     expect(resolveOptions({ log: true }, "/p/x").log).toBe(true)
+    expect(resolveOptions({ log: false }, "/p/x").log).toBe(false)
     expect(resolveOptions({ log: "~/x.log" }, "/p/x").log).toBe(path.join(os.homedir(), "x.log"))
   })
 
@@ -93,6 +94,22 @@ describe("new options", () => {
     const c = resolveOptions({ mineAgent: "michael", mimoDb: "~/elsewhere.db" }, "/p/x")
     expect(c.mineAgent).toBe("michael")
     expect(c.mimoDb).toBe(path.join(os.homedir(), "elsewhere.db"))
+  })
+
+  test("a project name with no slug characters keeps its own wing", () => {
+    const cyrillic = resolveOptions({}, "/home/u/проекты/секретный-клиент").wing
+    const cjk = resolveOptions({}, "/home/u/oss/日本語プロジェクト").wing
+    expect(cyrillic).not.toBe("unsorted")
+    expect(cjk).not.toBe("unsorted")
+    expect(cyrillic).not.toBe(cjk)
+    // Still a legal mempalace slug.
+    expect(cyrillic as string).toMatch(/^[a-z0-9_-]+$/)
+  })
+
+  test("latin project names keep the wing they always had", () => {
+    expect(resolveOptions({}, "/home/u/work/api").wing).toBe("api")
+    expect(resolveOptions({}, "/home/u/x/My.Project").wing).toBe("my-project")
+    expect(resolveOptions({ wing: "pinned" }, "/p/x").wing).toBe("pinned")
   })
 
   test("wingAuto reflects how wing was chosen", () => {

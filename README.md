@@ -51,7 +51,7 @@ The same round trip is pinned by [`test/e2e.test.ts`](test/e2e.test.ts) against 
 > **Don't install anything by hand.** Paste this line into MiMoCode itself:
 
 ```text
-Set up https://github.com/mvalentsev/mimocode-mempalace for me, with "log": true
+Set up https://github.com/mvalentsev/mimocode-mempalace for me
 ```
 
 It reads this page and walks every step of [Setup](#setup) on its own — install MemPalace, create the palace, write the config — then tells you when to restart. That is exactly how this plugin's field installs have happened.
@@ -110,7 +110,7 @@ mkdir -p ~/mimo-memory && mempalace init ~/mimo-memory --yes
 ```json
 {
   "plugin": [
-    ["mimocode-mempalace", { "palace": "~/mimo-memory", "log": true }]
+    ["mimocode-mempalace", { "palace": "~/mimo-memory" }]
   ],
   "mcp": {
     "mempalace": {
@@ -158,6 +158,22 @@ Use the absolute repo path as the plugin name:
 
 </details>
 
+## Updating
+
+MiMoCode installs the plugin once and keeps it: `mimocode-mempalace@latest` is resolved on first use and the cached copy is reused forever, with no version check. A new release therefore does **not** reach you on its own. Two ways to move:
+
+```bash
+rm -rf ~/.cache/mimocode/packages/mimocode-mempalace@latest   # then restart MiMoCode
+```
+
+or pin the version you want in the config, which installs into its own cache entry:
+
+```json
+{ "plugin": [["mimocode-mempalace@0.3.0", { "palace": "~/mimo-memory" }]] }
+```
+
+`ready: MemPalace X.Y.Z, ...` in the log confirms the restart picked the plugin up; the npm page shows the current version.
+
 ## Options
 
 Setup used two of these — `palace` and `log`; everything else tunes a default.
@@ -166,10 +182,10 @@ Setup used two of these — `palace` and `log`; everything else tunes a default.
 |---|---|---|
 | `palace` | `~/.local/share/mimocode-mempalace/palace` | Palace directory (create it with `mempalace init`) |
 | `bin` | `mempalace` | mempalace executable, if not on PATH |
-| `wing` | `"auto"` | `"auto"` scopes memories per project directory name; a string pins one wing for everything; `false` drops per-project scoping — exchanges land in a shared `unsorted` wing and search is palace-wide |
+| `wing` | `"auto"` | `"auto"` scopes memories per project directory name (a name that is entirely non-Latin gets a `w-<digest>` wing of its own rather than sharing one bucket); a string pins one wing for everything; `false` drops per-project scoping — exchanges land in a shared `unsorted` wing and search is palace-wide |
 | `searchScope` | `"wing"` | `"wing"` keeps recall inside the current project; `"palace"` searches across all projects ("how did I solve this in that other repo?") |
 | `captureMode` | `"exchange"` | `"exchange"` saves question + final answer; `"turn"` also keeps the intermediate assistant replies of the turn (tool-loop reasoning) |
-| `cleanupAfterMine` | `false` | Delete exchange transcripts once they are mined; by default they stay as a plain-text journal |
+| `cleanupAfterMine` | `false` | Delete exchange transcripts once mined — only when the run accounts for all of them; by default they stay as a plain-text journal |
 | `capture` | `true` | Save completed turns; `false` also keeps the startup sweep from mining leftovers, so the plugin never writes to the palace |
 | `inject` | `true` | Retrieve and inject memories |
 | `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables. It is one global file injected in every project, so keep it about you, not about the project of the day |
@@ -183,7 +199,7 @@ Setup used two of these — `palace` and `log`; everything else tunes a default.
 | `mimoDb` | `~/.local/share/mimocode/mimocode.db` | MiMoCode's SQLite database, read by `backfill` |
 | `exportsDir` | `~/.local/share/mimocode-mempalace/exchanges` | Where exchange transcripts are kept |
 | `agents` | `["main"]` | Agent slices to capture |
-| `log` | `false` | `true` logs to `~/.local/share/mimocode-mempalace/plugin.log`, a string sets a custom path |
+| `log` | `true` | Logs to `~/.local/share/mimocode-mempalace/plugin.log`; a string sets a custom path, `false` turns it off |
 
 ## Import your past sessions
 
@@ -238,7 +254,7 @@ Relevant memories already arrive in the system prompt under "Long-term memory
 
 ## Troubleshooting
 
-Set `"log": true` in the plugin options and read `~/.local/share/mimocode-mempalace/plugin.log`.
+The log is on by default: read `~/.local/share/mimocode-mempalace/plugin.log` (`"log": false` turns it off, a string moves it).
 
 ### The plugin
 

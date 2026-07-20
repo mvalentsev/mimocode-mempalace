@@ -60,13 +60,32 @@ const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.i
 
 const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback)
 
-/** Wing names stay within mempalace slug conventions: lowercase, [a-z0-9_-]. */
+/** FNV-1a, base36: enough to tell two names apart, short enough to read. */
+const digest = (raw: string) => {
+  let h = 0x811c9dc5
+  for (let i = 0; i < raw.length; i++) {
+    h ^= raw.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(36)
+}
+
+/**
+ * Wing names stay within mempalace slug conventions: lowercase, [a-z0-9_-].
+ * Names that leave nothing behind - Cyrillic, CJK, emoji - used to land in the
+ * shared `unsorted` wing together, which mixed unrelated projects' memories
+ * into each other's prompts; they get a digest of their own name instead.
+ */
 export function slugifyWing(raw: string) {
   const slug = raw
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
-  return slug || "unsorted"
+  if (slug) return slug
+  // Nothing survived. A name that still carries letters or digits is a real
+  // project name in another script, so it earns a wing of its own; a name that
+  // was only separators has nothing to tell apart and stays in the bucket.
+  return /[\p{L}\p{N}]/u.test(raw) ? `w-${digest(raw)}` : "unsorted"
 }
 
 export function resolveOptions(raw: Record<string, unknown> | undefined, projectDir: string): Options {
@@ -83,7 +102,10 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
   })()
   const log = (() => {
     if (typeof o.log === "string" && o.log.trim()) return expandHome(o.log.trim())
-    return bool(o.log, false)
+    // On by default: every failure this plugin can hit is invisible otherwise,
+    // and "no memories appeared and nothing says why" is the worst way to meet
+    // a bug. `false` still turns it off.
+    return bool(o.log, true)
   })()
   return {
     palace: str(o.palace, path.join(defaultDataDir(), "palace")),

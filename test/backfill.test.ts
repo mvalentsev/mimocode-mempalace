@@ -60,7 +60,7 @@ describe("extractSessions", () => {
   test("exports top-level sessions as convos jsonl, per-project wings", async () => {
     const { o } = await setup()
     const db = new Database(o.mimoDb, { readonly: true })
-    const r = extractSessions(db, o, NOW, [])
+    const r = await extractSessions(db, o, NOW, [])
     db.close()
     expect(r.sessions).toBe(2)
     const byWing = Object.fromEntries(r.exported.map((x) => [path.basename(path.dirname(x.file)), x.body]))
@@ -77,7 +77,7 @@ describe("extractSessions", () => {
     // limit=2 covers ses_noise (empty after filtering) and ses_b; ses_a falls outside
     const { o } = await setup({ wing: "pinned", backfill: 2 })
     const db = new Database(o.mimoDb, { readonly: true })
-    const r = extractSessions(db, o, NOW, [])
+    const r = await extractSessions(db, o, NOW, [])
     db.close()
     expect(r.sessions).toBe(1)
     expect(r.exported[0]!.file).toContain(`${path.sep}pinned${path.sep}`)
@@ -88,7 +88,7 @@ describe("extractSessions", () => {
   test("already-captured sessions are skipped", async () => {
     const { o } = await setup()
     const db = new Database(o.mimoDb, { readonly: true })
-    const r = extractSessions(db, o, NOW, ["ses_a"])
+    const r = await extractSessions(db, o, NOW, ["ses_a"])
     db.close()
     expect(r.sessions).toBe(1)
     expect(r.skippedCaptured).toBe(1)
@@ -149,5 +149,18 @@ describe("runBackfill", () => {
     await runBackfill(o, s.miner, (m) => void logs.push(m))
     expect(logs.join("\n")).toContain("unexpected schema")
     expect(await readFile(markerPath(o), "utf8").catch(() => null)).toBe(null)
+  })
+})
+
+describe("extractSessions yields", () => {
+  test("does not hold the event loop for the whole scan", async () => {
+    const s = await setup()
+    const db = new Database(s.o.mimoDb, { readonly: true })
+    let ticked = false
+    const timer = setTimeout(() => (ticked = true), 0)
+    await extractSessions(db, s.o, NOW, [])
+    clearTimeout(timer)
+    db.close()
+    expect(ticked).toBe(true)
   })
 })

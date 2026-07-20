@@ -57,8 +57,9 @@ export function createInjector(o: Options, log: Logger): Injector {
   })()
 
   let notedEmptyPalace = false
+  let notedNoSession = false
 
-  const runSearch = async (query: string) => {
+  const runSearch = async (query: string): Promise<{ block: string; ok: boolean }> => {
     const res = await run(o.bin, searchArgs(o, query), o.searchTimeoutMs)
     if (!res.ok) {
       // A palace nothing has been mined into yet is a normal state, not noise.
@@ -67,20 +68,31 @@ export function createInjector(o: Options, log: Logger): Injector {
         notedEmptyPalace = true
       } else {
         const detail = (res.stderr.trim() || res.stdout.trim()).slice(0, 300)
-        log(`search failed (code=${res.code} timedOut=${res.timedOut}): ${detail}`)
+        log(
+          `search failed (code=${res.code} timedOut=${res.timedOut}` +
+            `${res.timedOut ? `, budget ${o.searchTimeoutMs}ms - raise searchTimeoutMs` : ""}): ${detail}`,
+        )
       }
-      return ""
+      return { block: "", ok: false }
     }
-    return extractResults(res.stdout, o.injectMaxChars)
+    const block = extractResults(res.stdout, o.injectMaxChars)
+    if (!block) log(`search returned no results (${res.stdout.trim().length} chars, no [1] marker)`)
+    return { block, ok: true }
   }
 
   const searchBlock = (query: string): Promise<string> => {
     const hit = cache.get(query)
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.block
     log(`search (cache miss): "${query.slice(0, 80)}${query.length > 80 ? "…" : ""}"`)
-    // Failures cache as "" too: an empty or broken palace must not re-spawn a
-    // search on every LLM step of the same turn.
-    const block = runSearch(query)
+    // A completed search caches - including an honest miss - so the many LLM
+    // steps of one turn cost one spawn. A *failure* must not: one locked
+    // backend would otherwise silence memory for every session in the process
+    // until the TTL expired.
+    const attempt = runSearch(query)
+    const block = attempt.then((r) => {
+      if (!r.ok) cache.delete(query)
+      return r.block
+    })
     cache.set(query, { at: Date.now(), block })
     mapCap(cache, CACHE_MAX)
     return block
@@ -93,7 +105,13 @@ export function createInjector(o: Options, log: Logger): Injector {
         .filter((p) => p.type === "text" && !p.synthetic && typeof p.text === "string" && p.text.trim())
         .map((p) => p.text!.trim())
         .join("\n")
-      if (!text) return
+      // A turn that carries no text of its own (a dropped file, an image) must
+      // not inherit the previous question: its memories would answer something
+      // the user is no longer asking.
+      if (!text) {
+        lastUserText.delete(sessionID)
+        return
+      }
       lastUserText.delete(sessionID)
       lastUserText.set(sessionID, trimQuery(text))
       mapCap(lastUserText, SESSIONS_MAX)
@@ -103,6 +121,12 @@ export function createInjector(o: Options, log: Logger): Injector {
       const who = await identity()
       if (who) sections.push(who)
 
+      if (!sessionID && !notedNoSession) {
+        // MiMoCode triggers this hook from a second, session-less call site
+        // (Agent.generate); there is nothing to search for there.
+        log("system transform without a sessionID: nothing to search for")
+        notedNoSession = true
+      }
       const query = sessionID ? lastUserText.get(sessionID) : undefined
       if (query) {
         const block = await searchBlock(query)

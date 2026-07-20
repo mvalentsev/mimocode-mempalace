@@ -95,6 +95,14 @@ export function extractResults(stdout: string, maxChars: number) {
   return (lastLine > 0 ? cut.slice(0, lastLine) : cut) + "\n[truncated]"
 }
 
+/** Transcripts a mine run says it handled: filed plus already-filed. */
+const accountedFor = (stdout: string) => {
+  const processed = stdout.match(/Files processed:\s*(\d+)/)
+  const skipped = stdout.match(/Files skipped[^:]*:\s*(\d+)/)
+  if (!processed && !skipped) return undefined
+  return Number(processed?.[1] ?? 0) + Number(skipped?.[1] ?? 0)
+}
+
 export type Miner = {
   /** Mark the exports dir dirty; a mine run fires after the debounce window. */
   schedule: () => void
@@ -125,10 +133,16 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
       return
     }
     log(`mine ok: ${target}`)
-    if (o.cleanupAfterMine) {
+    const snapshot = before.filter((f) => f.endsWith(".jsonl"))
+    const accounted = accountedFor(res.stdout)
+    // Exit 0 does not mean every transcript was filed: mempalace skips files it
+    // cannot chunk and still succeeds. Deleting on the exit code alone loses
+    // those for good, so cleanup needs the run's own tally to add up.
+    if (o.cleanupAfterMine && (accounted === undefined || accounted < snapshot.length)) {
+      log(`cleanup skipped: the run accounted for ${accounted ?? "no"} of ${snapshot.length} transcript(s)`)
+    } else if (o.cleanupAfterMine) {
       const gone = await Promise.all(
-        before
-          .filter((f) => f.endsWith(".jsonl"))
+        snapshot
           .map((f) =>
             unlink(path.join(target, f)).then(
               () => 1,
@@ -168,14 +182,21 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
       return chain
     },
     flush: async () => {
-      while (timer !== undefined || dirty) {
+      // A schedule() landing while the last chain was being awaited used to be
+      // missed, so shutdown left the newest exchange unmined until the next
+      // startup sweep. Re-check after every await, not before the last one.
+      let awaited: Promise<void> | undefined
+      do {
         if (timer !== undefined) {
           clearTimeout(timer)
           fire()
         }
-        await chain
-      }
-      await chain
+        awaited = chain
+        await awaited
+        // `chain` is reassigned by every run queued meanwhile, so awaiting the
+        // snapshot proves nothing until it stops moving. Without this a mine
+        // scheduled during shutdown was left for the next startup sweep.
+      } while (timer !== undefined || dirty || chain !== awaited)
     },
   }
 }

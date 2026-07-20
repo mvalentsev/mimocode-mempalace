@@ -20,12 +20,12 @@ type Exported = { wing: string | false; file: string; body: string }
  * turn each into one convos-mode transcript. Sessions the plugin has already
  * captured exchanges for are skipped rather than half-deduplicated.
  */
-export function extractSessions(
+export async function extractSessions(
   db: Database,
   o: Options,
   before: number,
   capturedSessionPrefixes: string[],
-): { exported: Exported[]; sessions: number; skippedCaptured: number; skippedEmpty: number } {
+): Promise<{ exported: Exported[]; sessions: number; skippedCaptured: number; skippedEmpty: number }> {
   const limit = typeof o.backfill === "number" ? o.backfill : -1
   const sessions = db
     .query<SessionRow, [number]>(
@@ -49,6 +49,9 @@ export function extractSessions(
   let skippedEmpty = 0
 
   for (const s of sessions) {
+    // A whole history is thousands of JSON.parse calls on the event loop the
+    // host shares with its UI and every other plugin; yield between sessions.
+    await Bun.sleep(0)
     const sid = sanitizeId(s.id)
     if (capturedSessionPrefixes.some((p) => p === sid)) {
       skippedCaptured++
@@ -128,9 +131,9 @@ export async function runBackfill(o: Options, miner: Miner, log: Logger): Promis
     log(`backfill skipped: cannot open ${o.mimoDb}: ${e}`)
     return
   }
-  let result: ReturnType<typeof extractSessions>
+  let result: Awaited<ReturnType<typeof extractSessions>>
   try {
-    result = extractSessions(db, o, Date.now(), await capturedSessionIds(o.exportsDir))
+    result = await extractSessions(db, o, Date.now(), await capturedSessionIds(o.exportsDir))
   } catch (e) {
     log(`backfill skipped: ${o.mimoDb} has an unexpected schema: ${e}`)
     return
@@ -139,19 +142,36 @@ export async function runBackfill(o: Options, miner: Miner, log: Logger): Promis
   }
 
   const wings = new Map<string, string | false>()
+  // One unwritable wing must not abort the import: without the marker the whole
+  // scan repeats on every start, and every session past the failure is never
+  // imported at all.
+  const failures: string[] = []
   for (const x of result.exported) {
     const dir = path.dirname(x.file)
-    await mkdir(dir, { recursive: true })
-    await Bun.write(x.file, x.body)
-    wings.set(dir, x.wing)
+    try {
+      await mkdir(dir, { recursive: true })
+      await Bun.write(x.file, x.body)
+      wings.set(dir, x.wing)
+    } catch (e) {
+      failures.push(`${path.basename(dir)}: ${e}`)
+    }
+    // The export loop shares the event loop with MiMoCode; yielding keeps the
+    // UI and every other hook alive while a large history is written out.
+    await Bun.sleep(0)
   }
   await Bun.write(
     markerPath(o),
-    JSON.stringify({ finishedAt: new Date().toISOString(), ...result, exported: result.exported.length }) + "\n",
+    JSON.stringify({
+      finishedAt: new Date().toISOString(),
+      ...result,
+      exported: result.exported.length - failures.length,
+      failed: failures.length,
+    }) + "\n",
   )
   log(
-    `backfill: exported ${result.sessions} session(s) into ${wings.size} wing(s)` +
-      ` (skipped: ${result.skippedCaptured} already captured, ${result.skippedEmpty} empty)`,
+    `backfill: exported ${result.sessions - failures.length} session(s) into ${wings.size} wing(s)` +
+      ` (skipped: ${result.skippedCaptured} already captured, ${result.skippedEmpty} empty)` +
+      (failures.length ? `; ${failures.length} failed to write: ${failures.slice(0, 3).join("; ")}` : ""),
   )
   for (const [dir, wing] of wings) await miner.enqueue(dir, wing)
 }

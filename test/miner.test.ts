@@ -160,6 +160,28 @@ describe("createMiner", () => {
   })
 })
 
+describe("flush", () => {
+  test("waits for a mine scheduled while it was already draining", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-flush-"))
+    const journal = path.join(tmp, "journal.txt")
+    const f = await fakeBin(`echo run >> ${journal}\nsleep 0.3`)
+    const o = resolveOptions(
+      { bin: f.bin, palace: "/p", wing: "w", mineDebounceMs: 20, mineTimeoutMs: 5000 },
+      "/p/x",
+    )
+    const miner = createMiner(o, "/exchanges/w", () => {})
+
+    void miner.enqueue("/exchanges/w", "w")
+    const flushing = miner.flush()
+    await Bun.sleep(50) // lands while flush() is awaiting the in-flight run
+    miner.schedule()
+    await flushing
+
+    const runs = (await readFile(journal, "utf8")).trim().split("\n").length
+    expect(runs).toBe(2)
+  })
+})
+
 describe("searchScope", () => {
   test("palace scope drops the wing filter from search only", () => {
     const o = resolveOptions({ palace: "/p", wing: "w1", searchScope: "palace" }, "/p/x")
@@ -172,7 +194,8 @@ describe("cleanupAfterMine", () => {
   test("mined transcripts are removed after a successful run, later arrivals survive", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "mm-clean-"))
     await writeFile(path.join(dir, "session-a.jsonl"), "{}\n")
-    const f = await fakeBin("sleep 0.15")
+    // A real mine reports what it filed; cleanup now trusts that, not exit 0.
+    const f = await fakeBin('sleep 0.15\necho "  Files processed: 1"\necho "  Files skipped (already filed): 0"')
     const o = resolveOptions(
       { bin: f.bin, palace: "/p", wing: "w", cleanupAfterMine: true, mineDebounceMs: 30, mineTimeoutMs: 5000 },
       "/p/x",
@@ -202,5 +225,25 @@ describe("cleanupAfterMine", () => {
     await miner.flush()
     const still = await readFile(path.join(dir, "session-a.jsonl"), "utf8")
     expect(still).toBe("{}\n")
+  })
+
+  test("transcripts survive a run that did not account for them", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "mm-clean-"))
+    await writeFile(path.join(dir, "session-a.jsonl"), "{}\n")
+    await writeFile(path.join(dir, "session-b.jsonl"), "{}\n")
+    // mempalace exits 0 while quietly skipping a file (too short to chunk, an
+    // unreadable line); deleting on exit code alone loses it for good.
+    const f = await fakeBin('echo "  Files processed: 1"\necho "  Files skipped (already filed): 0"')
+    const logs: string[] = []
+    const o = resolveOptions(
+      { bin: f.bin, palace: "/p", wing: "w", cleanupAfterMine: true, mineDebounceMs: 20 },
+      "/p/x",
+    )
+    const miner = createMiner(o, dir, (m) => logs.push(m))
+    miner.schedule()
+    await miner.flush()
+    expect(await readFile(path.join(dir, "session-a.jsonl"), "utf8")).toBe("{}\n")
+    expect(await readFile(path.join(dir, "session-b.jsonl"), "utf8")).toBe("{}\n")
+    expect(logs.some((l) => l.includes("cleanup skipped"))).toBe(true)
   })
 })
