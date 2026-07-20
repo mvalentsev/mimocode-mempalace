@@ -7,9 +7,12 @@ type PartLike = { type?: string; text?: string; synthetic?: boolean }
 export type ChatMessageOutput = { parts?: PartLike[] }
 
 const CACHE_TTL_MS = 120_000
+/** A failure is worth remembering for the rest of the turn, not for minutes. */
+const FAILURE_TTL_MS = 3_000
 const CACHE_MAX = 20
 const SESSIONS_MAX = 100
 const QUERY_MAX_CHARS = 600
+const IDENTITY_MAX_CHARS = 4000
 
 /** A pasted wall of code makes a poor and slow embedding query; the head carries the intent. */
 const trimQuery = (text: string) => {
@@ -42,7 +45,7 @@ export function createInjector(o: Options, log: Logger): Injector {
   const lastUserText = new Map<string, string>()
   // The promise itself is cached: parallel LLM steps of one turn arriving
   // before the first search finishes must await it, not spawn their own.
-  const cache = new Map<string, { at: number; block: Promise<string> }>()
+  const cache = new Map<string, { at: number; ttl: number; block: Promise<string> }>()
 
   const identity = (() => {
     let value: Promise<string> | undefined
@@ -50,8 +53,20 @@ export function createInjector(o: Options, log: Logger): Injector {
       if (o.identityFile === false) return Promise.resolve("")
       value ??= Bun.file(o.identityFile)
         .text()
-        .then((t) => t.trim())
-        .catch(() => "")
+        .then((t) => {
+          const text = t.trim()
+          // injectMaxChars bounds the search results; nothing bounded this, so
+          // a stray large file went into every prompt of every step whole.
+          if (text.length <= IDENTITY_MAX_CHARS) return text
+          log(`identity file is ${text.length} chars; injecting the first ${IDENTITY_MAX_CHARS}`)
+          return text.slice(0, IDENTITY_MAX_CHARS) + "\n[truncated]"
+        })
+        .catch(() => {
+          // Do not memoize "not there": the file is usually written just after
+          // the plugin is installed, and a restart should not be the price.
+          value = undefined
+          return ""
+        })
       return value
     }
   })()
@@ -82,20 +97,22 @@ export function createInjector(o: Options, log: Logger): Injector {
 
   const searchBlock = (query: string): Promise<string> => {
     const hit = cache.get(query)
-    if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.block
+    if (hit && Date.now() - hit.at < hit.ttl) return hit.block
     log(`search (cache miss): "${query.slice(0, 80)}${query.length > 80 ? "…" : ""}"`)
     // A completed search caches - including an honest miss - so the many LLM
-    // steps of one turn cost one spawn. A *failure* must not: one locked
-    // backend would otherwise silence memory for every session in the process
-    // until the TTL expired.
+    // steps of one turn cost one spawn. A failure gets a much shorter window:
+    // long enough that a broken backend is not re-dialled on every step of the
+    // turn (each attempt costs the full search budget), short enough that the
+    // next turn tries again instead of staying blind for minutes.
     const attempt = runSearch(query)
-    const block = attempt.then((r) => {
-      if (!r.ok) cache.delete(query)
+    const entry = { at: Date.now(), ttl: CACHE_TTL_MS, block: Promise.resolve("") }
+    entry.block = attempt.then((r) => {
+      if (!r.ok) entry.ttl = FAILURE_TTL_MS
       return r.block
     })
-    cache.set(query, { at: Date.now(), block })
+    cache.set(query, entry)
     mapCap(cache, CACHE_MAX)
-    return block
+    return entry.block
   }
 
   return {

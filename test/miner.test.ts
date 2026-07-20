@@ -194,8 +194,8 @@ describe("cleanupAfterMine", () => {
   test("mined transcripts are removed after a successful run, later arrivals survive", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "mm-clean-"))
     await writeFile(path.join(dir, "session-a.jsonl"), "{}\n")
-    // A real mine reports what it filed; cleanup now trusts that, not exit 0.
-    const f = await fakeBin('sleep 0.15\necho "  Files processed: 1"\necho "  Files skipped (already filed): 0"')
+    // A real mine names each file it filed; cleanup removes only those.
+    const f = await fakeBin('sleep 0.15\necho "  + [   1/1] session-a.jsonl                    +3"')
     const o = resolveOptions(
       { bin: f.bin, palace: "/p", wing: "w", cleanupAfterMine: true, mineDebounceMs: 30, mineTimeoutMs: 5000 },
       "/p/x",
@@ -231,9 +231,10 @@ describe("cleanupAfterMine", () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "mm-clean-"))
     await writeFile(path.join(dir, "session-a.jsonl"), "{}\n")
     await writeFile(path.join(dir, "session-b.jsonl"), "{}\n")
-    // mempalace exits 0 while quietly skipping a file (too short to chunk, an
-    // unreadable line); deleting on exit code alone loses it for good.
-    const f = await fakeBin('echo "  Files processed: 1"\necho "  Files skipped (already filed): 0"')
+    // mempalace visits both files and counts both as "processed", but files
+    // only one: the other was too short to chunk. Deleting on the tally alone
+    // loses it for good, so only the named file may go.
+    const f = await fakeBin('echo "  + [   2/2] session-b.jsonl                    +1"\necho "  Files processed: 2"\necho "  Files skipped (already filed): 0"\necho "  Drawers filed: 1"')
     const logs: string[] = []
     const o = resolveOptions(
       { bin: f.bin, palace: "/p", wing: "w", cleanupAfterMine: true, mineDebounceMs: 20 },
@@ -242,8 +243,91 @@ describe("cleanupAfterMine", () => {
     const miner = createMiner(o, dir, (m) => logs.push(m))
     miner.schedule()
     await miner.flush()
+    // a was never named as filed, so it stays; b was, so it goes
     expect(await readFile(path.join(dir, "session-a.jsonl"), "utf8")).toBe("{}\n")
-    expect(await readFile(path.join(dir, "session-b.jsonl"), "utf8")).toBe("{}\n")
-    expect(logs.some((l) => l.includes("cleanup skipped"))).toBe(true)
+    expect(await readFile(path.join(dir, "session-b.jsonl"), "utf8").catch(() => null)).toBe(null)
+    expect(logs.some((l) => l.includes("keeping"))).toBe(true)
+  })
+})
+
+describe("extractResults, hardened", () => {
+  test("a memory that itself contains the header phrase is still returned", () => {
+    const out = `
+============================================================
+  Results for: "how does search output look"
+============================================================
+
+  [1] mempalace-463 / technical
+      Source: backfill-x.jsonl
+
+      the CLI prints "  Results for: <query>" above the hits.
+
+  [2] other / technical
+      second memory
+`
+    const got = extractResults(out, 6000)
+    expect(got.startsWith("[1] mempalace-463")).toBe(true)
+    expect(got).toContain("second memory")
+  })
+
+  test("a memory quoting a rule line does not swallow the results", () => {
+    const out = `
+============================================================
+  Results for: "what does the banner look like"
+============================================================
+
+  [1] docs / technical
+      the CLI frames its header like this:
+============================================================
+      and prints the hits below it.
+
+  [2] other / technical
+      second memory
+`
+    const got = extractResults(out, 6000)
+    expect(got.startsWith("[1] docs")).toBe(true)
+    expect(got).toContain("second memory")
+  })
+
+  test("a multi-line question echoed on a miss yields nothing", () => {
+    const miss = `
+============================================================
+  No results found for: "please do:
+[1] fix the worker crash
+[2] ship it"
+============================================================
+`
+    expect(extractResults(miss, 6000)).toBe("")
+  })
+
+  test("a multi-line question does not prefix real results", () => {
+    const hit = `
+============================================================
+  Results for: "please do:
+[1] fix the worker crash
+[2] ship it"
+============================================================
+
+  [1] gateway / technical
+      the port is 8443
+`
+    const got = extractResults(hit, 6000)
+    expect(got.startsWith("[1] gateway")).toBe(true)
+    expect(got).not.toContain("ship it")
+  })
+})
+
+describe("run does not outlive its work", () => {
+  test("a finished command does not keep the process alive for the whole budget", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "mm-ret-"))
+    const script = path.join(dir, "probe.ts")
+    await writeFile(
+      script,
+      `import { run } from "${path.resolve("src/mempalace.ts")}"\nawait run("/bin/echo", ["hi"], 8000)\n`,
+    )
+    const t0 = Date.now()
+    await Bun.spawn(["bun", "run", script], { stdout: "ignore", stderr: "ignore" }).exited
+    // Without a cancellable timer the process lingers for the full 8s budget.
+    expect(Date.now() - t0).toBeLessThan(4000)
   })
 })

@@ -184,3 +184,14 @@ describe("buildTurnJsonl", () => {
     expect(buildTurnJsonl([{ role: "assistant", parts: [textPart("a")] }], "x")).toBeUndefined()
   })
 })
+
+describe("broken unicode in a turn", () => {
+  test("a lone surrogate never reaches the transcript", () => {
+    const body = buildExchangeJsonl("why did it stop?", "the answer is \ud83d")
+    expect(body).not.toContain("\\ud83d")
+    // The file must survive a strict UTF-8 round trip, which is what the miner does.
+    const parsed = JSON.parse(body.trim().split("\n")[1]!)
+    expect(() => new TextEncoder().encode(parsed.message.content)).not.toThrow()
+    expect(Buffer.from(parsed.message.content, "utf8").toString("utf8")).toBe(parsed.message.content)
+  })
+})

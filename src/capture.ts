@@ -1,6 +1,6 @@
 import { mkdir, readdir } from "node:fs/promises"
 import path from "path"
-import type { Options } from "./config.ts"
+import { legacyWing, type Options } from "./config.ts"
 import type { Logger } from "./log.ts"
 import type { Miner } from "./mempalace.ts"
 import { pendingSince, readMineState } from "./mine-state.ts"
@@ -27,10 +27,18 @@ export type SessionPostInput = {
   trajectory: TrajectoryMessageLike[]
 }
 
+/**
+ * A stream cut mid-emoji leaves an unpaired surrogate. JSON.stringify escapes
+ * it happily, but the result cannot be decoded as UTF-8, and the miner either
+ * skips the file forever or dies on it.
+ */
+const stripLoneSurrogates = (s: string) =>
+  s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "").replace(/(^|[^\uD800-\uDBFF])([\uDC00-\uDFFF])/g, "$1")
+
 const partText = (parts: TrajectoryPartLike[]) =>
   parts
     .filter((p) => p.type === "text" && !p.synthetic && !p.ignored && typeof p.text === "string" && p.text.trim())
-    .map((p) => p.text!.trim())
+    .map((p) => stripLoneSurrogates(p.text!.trim()))
     .join("\n")
 
 /**
@@ -53,8 +61,8 @@ export function extractLastUserText(trajectory: TrajectoryMessageLike[]) {
  */
 export function buildExchangeJsonl(user: string, assistant: string) {
   const lines = [
-    { type: "user", message: { content: user } },
-    { type: "assistant", message: { content: assistant } },
+    { type: "user", message: { content: stripLoneSurrogates(user) } },
+    { type: "assistant", message: { content: stripLoneSurrogates(assistant) } },
   ]
   return lines.map((l) => JSON.stringify(l)).join("\n") + "\n"
 }
@@ -82,7 +90,7 @@ export function buildTurnJsonl(trajectory: TrajectoryMessageLike[], finalText: s
     lines.push({ type: msg.role, message: { content: text } })
   }
   const last = lines[lines.length - 1]
-  const final = finalText.trim()
+  const final = stripLoneSurrogates(finalText.trim())
   if (final && (!last || last.type !== "assistant" || !last.message.content.includes(final))) {
     lines.push({ type: "assistant", message: { content: final } })
   }
@@ -130,6 +138,21 @@ export function createCapture(o: Options, miner: Miner, log: Logger, gate: Promi
     if (pending) {
       log(`startup: ${pending} exchange file(s) pending, scheduling mine`)
       miner.schedule()
+    }
+    // Names that lost characters to the slug moved wings in 0.3.1; whatever was
+    // captured before that is still filed under the old name, where this
+    // project no longer searches.
+    if (typeof o.wing === "string" && o.wingAuto) {
+      const previous = legacyWing(o.wingSource)
+      if (previous !== o.wing) {
+        const stale = await readdir(path.join(o.exportsDir, previous)).catch(() => [])
+        if (stale.some((f) => f.endsWith(".jsonl"))) {
+          log(
+            `note: this project's wing is now "${o.wing}"; exchanges captured earlier are in "${previous}" - ` +
+              `searchScope: "palace" reaches them, or re-mine that directory with --wing ${o.wing}`,
+          )
+        }
+      }
     }
     const siblings = await readdir(o.exportsDir, { withFileTypes: true }).catch(() => [])
     for (const e of siblings) {

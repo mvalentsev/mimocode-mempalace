@@ -34,8 +34,18 @@ export async function run(bin: string, args: string[], timeoutMs: number): Promi
     const stdoutP = new Response(proc.stdout).text().catch(() => "")
     const stderrP = new Response(proc.stderr).text().catch(() => "")
     const exited = proc.exited.then(() => true)
+    // The loser of a race is never cancelled, and `Bun.sleep` cannot be, so
+    // racing against it keeps the host's event loop referenced for the whole
+    // budget after the work is done - up to mineTimeoutMs after every mine.
     const deadline = <T,>(p: Promise<T>, ms: number, fallback: T) =>
-      Promise.race([p, Bun.sleep(ms).then(() => fallback)])
+      new Promise<T>((resolve) => {
+        const timer = setTimeout(() => resolve(fallback), ms)
+        const settle = (value: T) => {
+          clearTimeout(timer)
+          resolve(value)
+        }
+        p.then(settle, () => settle(fallback))
+      })
 
     let timedOut = false
     if (!(await deadline(exited, timeoutMs, false))) {
@@ -75,12 +85,15 @@ export function mineArgs(o: Options, dir: string, wing: string | false = o.wing)
  * Empty palaces and misses produce no `[1]` marker, which is the "no results" signal.
  */
 export function extractResults(stdout: string, maxChars: number) {
-  // mempalace echoes the query above its results, so a question containing
-  // "[1]" (argv[1], worker[1], a footnote) would otherwise be sliced out of
-  // the echo and handed to the model as somebody's past memory. Skip the
-  // echoed header, then require the marker to open its own line.
-  const header = [...stdout.matchAll(/^.*Results for:.*$/gm)].pop()
-  const offset = header?.index !== undefined ? header.index + header[0].length : 0
+  // mempalace frames its header between two rule lines and echoes the query
+  // inside them. The echo is what makes a question containing "[1]" (argv[1],
+  // a numbered task list) come back as somebody's memory, and it can span
+  // several lines, so everything through the closing rule is discarded before
+  // the marker is looked for. Matching on the header text instead would break
+  // on memories that quote it - and on the last such match, drop them all.
+  const rules = [...stdout.matchAll(/^[ \t]*={4,}[ \t]*$/gm)]
+  const closing = rules[1]
+  const offset = closing?.index !== undefined ? closing.index + closing[0].length : 0
   const marker = stdout.slice(offset).match(/^([ \t]*)\[1\]/m)
   if (marker?.index === undefined) return ""
   const start = offset + marker.index + marker[1]!.length
@@ -95,13 +108,15 @@ export function extractResults(stdout: string, maxChars: number) {
   return (lastLine > 0 ? cut.slice(0, lastLine) : cut) + "\n[truncated]"
 }
 
-/** Transcripts a mine run says it handled: filed plus already-filed. */
-const accountedFor = (stdout: string) => {
-  const processed = stdout.match(/Files processed:\s*(\d+)/)
-  const skipped = stdout.match(/Files skipped[^:]*:\s*(\d+)/)
-  if (!processed && !skipped) return undefined
-  return Number(processed?.[1] ?? 0) + Number(skipped?.[1] ?? 0)
-}
+/**
+ * Transcripts a mine run reports filing, by name: the `+ [ i/n] file.jsonl`
+ * progress lines. The summary counters cannot be used for this - `Files
+ * processed` counts files visited, so a file mempalace skipped (content too
+ * short to chunk, a line it could not normalize) is counted there while never
+ * entering the palace, and deleting it would lose the conversation for good.
+ */
+const filedByRun = (stdout: string) =>
+  new Set([...stdout.matchAll(/^\s*\+\s*\[[^\]]*\]\s+(\S+)/gm)].map((m) => m[1]!))
 
 export type Miner = {
   /** Mark the exports dir dirty; a mine run fires after the debounce window. */
@@ -133,22 +148,23 @@ export function createMiner(o: Options, dir: string, log: Logger): Miner {
       return
     }
     log(`mine ok: ${target}`)
-    const snapshot = before.filter((f) => f.endsWith(".jsonl"))
-    const accounted = accountedFor(res.stdout)
-    // Exit 0 does not mean every transcript was filed: mempalace skips files it
-    // cannot chunk and still succeeds. Deleting on the exit code alone loses
-    // those for good, so cleanup needs the run's own tally to add up.
-    if (o.cleanupAfterMine && (accounted === undefined || accounted < snapshot.length)) {
-      log(`cleanup skipped: the run accounted for ${accounted ?? "no"} of ${snapshot.length} transcript(s)`)
-    } else if (o.cleanupAfterMine) {
+    if (o.cleanupAfterMine) {
+      // Exit 0 does not mean every transcript was filed: mempalace skips files
+      // it cannot chunk and still succeeds. Only the ones it named as filed
+      // may be deleted; the rest stay on disk, where a later mine can still
+      // pick them up once they grow.
+      const snapshot = before.filter((f) => f.endsWith(".jsonl"))
+      const filed = filedByRun(res.stdout)
+      const removable = snapshot.filter((f) => filed.has(f))
+      const kept = snapshot.length - removable.length
+      if (kept) log(`cleanup: keeping ${kept} transcript(s) this run did not report filing`)
       const gone = await Promise.all(
-        snapshot
-          .map((f) =>
-            unlink(path.join(target, f)).then(
-              () => 1,
-              () => 0,
-            ),
+        removable.map((f) =>
+          unlink(path.join(target, f)).then(
+            () => 1,
+            () => 0,
           ),
+        ),
       )
       const count = gone.reduce((a: number, b) => a + b, 0)
       if (count) log(`cleanup: removed ${count} mined transcript(s)`)

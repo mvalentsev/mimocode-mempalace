@@ -119,3 +119,27 @@ describe("new options", () => {
     expect(resolveOptions({ wing: false }, "/p/x").wingAuto).toBe(false)
   })
 })
+
+describe("counts that reach the CLI", () => {
+  test("injectResults is always an integer", () => {
+    expect(resolveOptions({ injectResults: 2.5 }, "/p/x").injectResults).toBe(2)
+    expect(resolveOptions({ injectResults: 0.4 }, "/p/x").injectResults).toBe(5)
+    expect(resolveOptions({ injectResults: 1e21 }, "/p/x").injectResults).toBe(5)
+  })
+})
+
+describe("wings that lost characters to the slug", () => {
+  test("a Latin fragment does not merge unrelated projects", () => {
+    const a = resolveOptions({}, "/home/u/проект-v2").wing
+    const b = resolveOptions({}, "/home/u/задача-v2").wing
+    const c = resolveOptions({}, "/home/u/仕様-v2").wing
+    expect(new Set([a, b, c]).size).toBe(3)
+    expect(a as string).toMatch(/^[a-z0-9_-]+$/)
+  })
+
+  test("names the slug carries whole are untouched", () => {
+    expect(resolveOptions({}, "/home/u/work/api").wing).toBe("api")
+    expect(resolveOptions({}, "/home/u/x/My.Project").wing).toBe("my-project")
+    expect(resolveOptions({}, "/home/u/x/api_v2").wing).toBe("api_v2")
+  })
+})

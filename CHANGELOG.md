@@ -2,6 +2,24 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.3.1] — 2026-07-20
+
+A review of what 0.3.0 shipped found that two of its headline fixes did not hold and two more were regressions. Those come first.
+
+### Fixed
+
+- **0.3.0 dropped real memories.** Its extractor skipped past the *last* line containing "Results for:", and mempalace prints retrieved text indented, so any memory that quoted that phrase pushed the cut past `[1]` and the whole block was discarded — logged as `search returned no results`, which reads as an empty palace. Against the live palace a query that returns 5268 characters of memories returned nothing at all. The header is now identified by the rule lines that frame it, which memories do not reproduce, and a memory quoting a rule line is covered by a test.
+- **The 0.3.0 echo fix did not cover multi-line questions.** A question written as a numbered list (`[1] fix the crash` / `[2] ship it`) still had its own lines injected as "verbatim excerpts from past sessions", because the echo spans several lines and only the first was skipped. Discarding everything through the closing rule line covers it.
+- **`run()` kept the host's event loop alive for its whole budget.** Racing against `Bun.sleep` leaves an uncancellable timer, and 0.3.0 removed the `clearTimeout` that 0.2.2 had: a 6 ms command with an 8 s budget kept the process up for 8.05 s — up to `mineTimeoutMs` (2 minutes by default) after every mine. The deadline is a real, cleared timer again.
+- **`cleanupAfterMine` deleted transcripts mempalace never filed.** The 0.3.0 gate summed `Files processed` + `Files skipped`, but `Files processed` counts files *visited*: a transcript too short to chunk is counted there and never enters the palace. Verified against the live binary — `Files processed: 2`, `Drawers filed: 1` — so the gate could not fail, and the docs promised it would. Cleanup now removes only the files a run names in its `+ [ i/n] name` lines; anything else stays on disk, where a later mine can still pick it up.
+- **A truncated emoji could poison a transcript for good.** A stream cut mid-character leaves an unpaired surrogate; `JSON.stringify` escapes it into valid JSON that is not valid UTF-8, so the miner either skips that file on every run from then on or dies on it. Lone surrogates are now stripped as the transcript is built.
+- **`injectResults: 2.5` silently disabled memory.** Only `> 0` was checked, so a non-integer reached the CLI as `--results 2.5` and argparse exited 2 on *every* search for the life of the process. Counts that reach the CLI are floored, and absurd magnitudes fall back to the default.
+- **The identity file had no size limit.** `injectMaxChars` bounds the search results only, so a 2 MB `identity.md` went into the system prompt whole, on every step of every turn — 2,000,032 characters, and the provider-side errors that follow point nowhere near this plugin. It is capped at 4000 characters now, with a line in the log when it truncates.
+- **An identity file created after the plugin started was never picked up.** The first read was memoized including its failure, so the usual order — install the plugin, then write `identity.md` — needed a restart nobody mentions. A missing file is no longer remembered as missing.
+- **A failing backend cost the search budget on every step of a turn.** 0.3.0 stopped caching failures entirely, so an agentic turn paid `searchTimeoutMs` again for each step. Failures now cache for three seconds: long enough to spare the rest of the turn, short enough that the next one retries.
+- **Projects whose names only partly survive the slug still shared a wing.** `проект-v2` and `задача-v2` both became `v2`. The digest is now appended whenever any letter or digit is lost, not only when nothing at all survives. Wings that move this way are called out in the log, with the old wing named, since memories filed under it stay there.
+- **backfill wrote its done-marker after partial failures**, which made a transient write error permanent: those sessions were never imported again. The marker is written only when every session lands.
+
 ## [0.3.0] — 2026-07-20
 
 Two adversarial passes over the code this release cycle had not touched — recall and write paths — turned up the defects below. Every one is pinned by a test that fails when the fix is reverted.
@@ -107,6 +125,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.3.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.1
 [0.3.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.0
 [0.2.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.2
 [0.2.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.1

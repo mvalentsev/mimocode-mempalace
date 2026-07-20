@@ -182,10 +182,10 @@ Setup used two of these — `palace` and `log`; everything else tunes a default.
 |---|---|---|
 | `palace` | `~/.local/share/mimocode-mempalace/palace` | Palace directory (create it with `mempalace init`) |
 | `bin` | `mempalace` | mempalace executable, if not on PATH |
-| `wing` | `"auto"` | `"auto"` scopes memories per project directory name (a name that is entirely non-Latin gets a `w-<digest>` wing of its own rather than sharing one bucket); a string pins one wing for everything; `false` drops per-project scoping — exchanges land in a shared `unsorted` wing and search is palace-wide |
+| `wing` | `"auto"` | `"auto"` scopes memories per project directory name (characters a slug cannot carry — Cyrillic, CJK, emoji — are replaced by a digest so unrelated projects never share a wing); a string pins one wing for everything; `false` drops per-project scoping — exchanges land in a shared `unsorted` wing and search is palace-wide |
 | `searchScope` | `"wing"` | `"wing"` keeps recall inside the current project; `"palace"` searches across all projects ("how did I solve this in that other repo?") |
 | `captureMode` | `"exchange"` | `"exchange"` saves question + final answer; `"turn"` also keeps the intermediate assistant replies of the turn (tool-loop reasoning) |
-| `cleanupAfterMine` | `false` | Delete exchange transcripts once mined — only when the run accounts for all of them; by default they stay as a plain-text journal |
+| `cleanupAfterMine` | `false` | Delete each transcript the mine run reports filing; anything it skipped stays on disk, as does the default plain-text journal |
 | `capture` | `true` | Save completed turns; `false` also keeps the startup sweep from mining leftovers, so the plugin never writes to the palace |
 | `inject` | `true` | Retrieve and inject memories |
 | `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables. It is one global file injected in every project, so keep it about you, not about the project of the day |

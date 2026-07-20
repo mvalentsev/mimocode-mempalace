@@ -96,7 +96,12 @@ describe("createInjector", () => {
     // The many LLM steps of one turn overlap and must cost one spawn...
     await Promise.all([inj.onSystemTransform("s1", { system: [] }), inj.onSystemTransform("s1", { system: [] })])
     expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(1)
-    // ...but a failure is not remembered, so a later turn asks again.
+    // ...and the steps that follow within the turn reuse the failure instead of
+    // paying the search budget again.
+    await inj.onSystemTransform("s1", { system: [] })
+    expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(1)
+    // Once the short failure window passes, a later turn asks again.
+    await Bun.sleep(3200)
     await inj.onSystemTransform("s1", { system: [] })
     expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(2)
   })
@@ -142,7 +147,16 @@ describe("failures and stale queries", () => {
     await inj.onSystemTransform("s1", first)
     expect(first.system).toEqual([])
 
-    // A different session, same question, right after the backend recovered.
+    // Within the short negative window the failure is remembered, so a
+    // multi-step turn does not pay the timeout again and again...
+    const during = { system: [] as string[] }
+    await inj.onSystemTransform("s1", during)
+    expect(during.system).toEqual([])
+    expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(1)
+
+    // ...but it expires quickly, so the next turn retries instead of staying
+    // blind for the full result TTL.
+    await Bun.sleep(3200)
     inj.onChatMessage("s2", userMessage("how is retry configured?"))
     const second = { system: [] as string[] }
     await inj.onSystemTransform("s2", second)
@@ -169,5 +183,32 @@ describe("failures and stale queries", () => {
     inj.onChatMessage("s1", userMessage("anything?"))
     await inj.onSystemTransform("s1", { system: [] as string[] })
     expect(logs.some((l) => l.includes("no results"))).toBe(true)
+  })
+})
+
+describe("identity file", () => {
+  test("a huge identity file is capped instead of pasted whole", async () => {
+    const f = await fakeSearchBin(`echo nothing`)
+    const big = path.join(f.dir, "identity.md")
+    await writeFile(big, "x".repeat(500_000))
+    const logs: string[] = []
+    const o = resolveOptions({ bin: f.bin, identityFile: big, wing: "w" }, "/p/x")
+    const inj = createInjector(o, (m) => logs.push(m))
+    const out = { system: [] as string[] }
+    await inj.onSystemTransform("s1", out)
+    expect(out.system[0]!.length).toBeLessThan(10_000)
+    expect(logs.some((l) => l.includes("identity"))).toBe(true)
+  })
+
+  test("an identity file created after the first read is picked up", async () => {
+    const f = await fakeSearchBin(`echo nothing`)
+    const late = path.join(f.dir, "identity.md")
+    const o = resolveOptions({ bin: f.bin, identityFile: late, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+    await inj.onSystemTransform("s1", { system: [] })
+    await writeFile(late, "I work on the payments service.")
+    const out = { system: [] as string[] }
+    await inj.onSystemTransform("s1", out)
+    expect(out.system[0] ?? "").toContain("payments service")
   })
 })

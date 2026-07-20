@@ -10,6 +10,8 @@ export type Options = {
   wing: string | false
   /** True when wing came from "auto": backfill then scopes each session by its own project directory. */
   wingAuto: boolean
+  /** The raw name `wing` was derived from, kept so a wing that moved can be explained. */
+  wingSource: string
   /** Search scope for injection: "wing" stays inside the project wing, "palace" searches everything. */
   searchScope: "wing" | "palace"
   /** "exchange" saves question + final answer; "turn" also keeps intermediate assistant replies of the turn. */
@@ -60,6 +62,12 @@ const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.i
 
 const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback)
 
+/** A count that reaches the CLI as an int: `--results 2.5` makes argparse exit 2. */
+const count = (v: unknown, fallback: number) => {
+  const n = num(v, NaN)
+  return Number.isFinite(n) && n >= 1 && n < 1e6 ? Math.floor(n) : fallback
+}
+
 /** FNV-1a, base36: enough to tell two names apart, short enough to read. */
 const digest = (raw: string) => {
   let h = 0x811c9dc5
@@ -70,32 +78,37 @@ const digest = (raw: string) => {
   return h.toString(36)
 }
 
-/**
- * Wing names stay within mempalace slug conventions: lowercase, [a-z0-9_-].
- * Names that leave nothing behind - Cyrillic, CJK, emoji - used to land in the
- * shared `unsorted` wing together, which mixed unrelated projects' memories
- * into each other's prompts; they get a digest of their own name instead.
- */
+/** The wing a name got before 0.3.1, when everything unslugable shared one bucket. */
+export function legacyWing(raw: string) {
+  const slug = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return slug || "unsorted"
+}
+
+/** Wing names stay within mempalace slug conventions: lowercase, [a-z0-9_-]. */
 export function slugifyWing(raw: string) {
   const slug = raw
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
-  if (slug) return slug
-  // Nothing survived. A name that still carries letters or digits is a real
-  // project name in another script, so it earns a wing of its own; a name that
-  // was only separators has nothing to tell apart and stays in the bucket.
-  return /[\p{L}\p{N}]/u.test(raw) ? `w-${digest(raw)}` : "unsorted"
+  // Whatever the slug could not carry is simply gone, and with it the only
+  // thing telling two projects apart: "проект-v2" and "задача-v2" both used to
+  // be "v2" and read each other's memories. Once any letter or digit is lost,
+  // a digest of the original name is appended - or becomes the wing when
+  // nothing at all survived. A name that was only separators has nothing to
+  // distinguish and stays in the shared bucket.
+  const lost = /[\p{L}\p{N}]/u.test(raw.replace(/[a-zA-Z0-9_-]+/g, ""))
+  if (!lost) return slug || "unsorted"
+  return slug ? `${slug}-${digest(raw)}` : `w-${digest(raw)}`
 }
 
 export function resolveOptions(raw: Record<string, unknown> | undefined, projectDir: string): Options {
   const o = raw ?? {}
   const wingAuto = o.wing !== false && !(typeof o.wing === "string" && o.wing.trim() && o.wing !== "auto")
-  const wing = (() => {
-    if (o.wing === false) return false as const
-    if (!wingAuto) return slugifyWing(o.wing as string)
-    return slugifyWing(path.basename(projectDir || "") || "unsorted")
-  })()
+  const wingSource = wingAuto ? path.basename(projectDir || "") || "unsorted" : String(o.wing)
+  const wing = o.wing === false ? (false as const) : slugifyWing(wingSource)
   const identityFile = (() => {
     if (o.identityFile === false) return false as const
     return str(o.identityFile, path.join(defaultDataDir(), "identity.md"))
@@ -112,13 +125,14 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
     bin: str(o.bin, "mempalace"),
     wing,
     wingAuto,
+    wingSource,
     searchScope: o.searchScope === "palace" ? "palace" : "wing",
     captureMode: o.captureMode === "turn" ? "turn" : "exchange",
     cleanupAfterMine: bool(o.cleanupAfterMine, false),
     capture: bool(o.capture, true),
     inject: bool(o.inject, true),
     identityFile,
-    injectResults: num(o.injectResults, 5),
+    injectResults: count(o.injectResults, 5),
     injectMaxChars: num(o.injectMaxChars, 6000),
     searchTimeoutMs: num(o.searchTimeoutMs, 10000),
     mineDebounceMs: num(o.mineDebounceMs, 3000),

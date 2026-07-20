@@ -184,3 +184,21 @@ describe("extractSessions yields", () => {
     expect(ticks).toBeGreaterThan(0)
   })
 })
+
+describe("backfill after a partial failure", () => {
+  test("no marker is written, so the failed sessions are retried", async () => {
+    const s = await setup()
+    // One wing directory cannot be created: a plain file occupies its path.
+    await mkdir(s.o.exportsDir, { recursive: true })
+    await writeFile(path.join(s.o.exportsDir, "projalpha"), "in the way")
+    const logs: string[] = []
+    const calls: string[] = []
+    const miner: Miner = { schedule: () => {}, enqueue: async (d) => void calls.push(path.basename(d)), flush: async () => {} }
+    await runBackfill(s.o, miner, (m) => logs.push(m))
+    const marker = await readFile(markerPath(s.o), "utf8").catch(() => null)
+    expect(marker).toBe(null)
+    expect(logs.some((l) => l.includes("failed"))).toBe(true)
+    // What could be written still reached the miner.
+    expect(calls.length).toBeGreaterThan(0)
+  })
+})

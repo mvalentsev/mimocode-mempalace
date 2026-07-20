@@ -207,3 +207,17 @@ describe("startup sweep", () => {
     expect(calls).toEqual([])
   })
 })
+
+describe("a wing that moved", () => {
+  test("the old wing is named in the log when it still holds transcripts", async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "mm-moved-"))
+    // Everything captured before the digest landed sits under the old name.
+    await mkdir(path.join(tmp, "unsorted"), { recursive: true })
+    await writeFile(path.join(tmp, "unsorted", "session-old.jsonl"), "{}\n{}\n")
+    const logs: string[] = []
+    const o = resolveOptions({ exportsDir: tmp, bin: await fakeBin() }, "/home/u/проекты/секретный-клиент")
+    createCapture(o, recorder().miner, (m) => logs.push(m), Promise.resolve(true))
+    await until(() => logs.some((l) => l.startsWith("note:")))
+    expect(logs.some((l) => l.includes('"unsorted"') && l.includes(o.wing as string))).toBe(true)
+  })
+})

@@ -161,15 +161,17 @@ export async function runBackfill(o: Options, miner: Miner, log: Logger): Promis
     // UI and every other hook alive while a large history is written out.
     await Bun.sleep(0)
   }
-  await Bun.write(
-    markerPath(o),
-    JSON.stringify({
-      finishedAt: new Date().toISOString(),
-      ...result,
-      exported: result.exported.length - failures.length,
-      failed: failures.length,
-    }) + "\n",
-  )
+  // The marker means "this history is imported". Writing it after a failure
+  // makes that loss permanent: the sessions that could not be written are
+  // never attempted again. A transient cause (a bad mode on one directory, a
+  // full disk) deserves the retry, and the scan yields now, so repeating it
+  // costs the host nothing it can feel.
+  if (!failures.length) {
+    await Bun.write(
+      markerPath(o),
+      JSON.stringify({ finishedAt: new Date().toISOString(), ...result, exported: result.exported.length }) + "\n",
+    )
+  }
   log(
     `backfill: exported ${result.sessions - failures.length} session(s) into ${wings.size} wing(s)` +
       ` (skipped: ${result.skippedCaptured} already captured, ${result.skippedEmpty} empty)` +
