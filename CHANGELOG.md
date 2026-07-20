@@ -2,6 +2,13 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.2.1] — 2026-07-20
+
+### Fixed
+
+- **The startup sweep re-mined directories it had already filed.** Any directory holding a `*.jsonl` counted as pending, and transcripts stay on disk by default (`cleanupAfterMine: false`), so every start queued one `mempalace mine` per wing whether or not anything new had landed. Against a real 25 MB palace a single such no-op run costs 17.7 s, so an exports directory with two dozen wings spent minutes mining nothing on every start — and the session's first `search`, competing with that serialized queue, timed out (`search failed (code=143 timedOut=true)`), sending the opening request to the model without memories. A directory is now swept only when it holds a transcript newer than its own last successful mine. The timestamps live in `.mine-state.json` at the root of `exportsDir`; delete that file and the next start re-mines everything. The first start after this upgrade still sweeps every wing once — that pass is what writes the journal.
+- `capture: false` now stops the startup sweep as well. The option reads as "completed turns are not saved", but the sweep still shelled out to `mempalace mine` and wrote to the palace.
+
 ## [0.2.0] — 2026-07-20
 
 ### Changed
@@ -64,6 +71,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.2.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.1
 [0.2.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.0
 [0.1.3]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.3
 [0.1.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.1.2
