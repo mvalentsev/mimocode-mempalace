@@ -186,6 +186,33 @@ describe("failures and stale queries", () => {
   })
 })
 
+describe("cache eviction is least-recently-used", () => {
+  test("a recently reused query survives; the truly-oldest is evicted", async () => {
+    // The cache holds 20 entries. Fill it, reuse the oldest so it is no longer
+    // the least-recently-used, then overflow by one. FIFO eviction would drop
+    // the entry we just reused; LRU drops the one that has actually gone cold.
+    const counter = path.join(await mkdtemp(path.join(os.tmpdir(), "mm-lru-")), "hits.txt")
+    const f = await fakeSearchBin(`printf '%s\\n' "$4" >> "${counter}"\ncat <<'EOF'\n${RESULT}\nEOF`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+    const ask = async (q: string) => {
+      inj.onChatMessage("s1", userMessage(q))
+      await inj.onSystemTransform("s1", { system: [] })
+    }
+    const spawns = async () => (await Bun.file(counter).text()).trim().split("\n").length
+
+    for (let i = 0; i < 20; i++) await ask("query number " + i) // 20 distinct misses
+    await ask("query number 0") // reuse the oldest: a hit, and now most-recently-used
+    await ask("query number 20") // overflow by one, evicting the real LRU
+    const base = await spawns()
+
+    await ask("query number 0") // reused entry must still be cached: no new spawn
+    expect(await spawns()).toBe(base)
+    await ask("query number 1") // the true LRU was evicted: this re-spawns
+    expect(await spawns()).toBe(base + 1)
+  })
+})
+
 describe("identity file", () => {
   test("a huge identity file is capped instead of pasted whole", async () => {
     const f = await fakeSearchBin(`echo nothing`)

@@ -97,7 +97,14 @@ export function createInjector(o: Options, log: Logger): Injector {
 
   const searchBlock = (query: string): Promise<string> => {
     const hit = cache.get(query)
-    if (hit && Date.now() - hit.at < hit.ttl) return hit.block
+    if (hit && Date.now() - hit.at < hit.ttl) {
+      // Reuse is use: re-insert so the entry mapCap evicts is the least-recently
+      // used, not merely the oldest-inserted - a query asked on every step of a
+      // long turn should outlive one asked once and forgotten.
+      cache.delete(query)
+      cache.set(query, hit)
+      return hit.block
+    }
     log(`search (cache miss): "${query.slice(0, 80)}${query.length > 80 ? "…" : ""}"`)
     // A completed search caches - including an honest miss - so the many LLM
     // steps of one turn cost one spawn. A failure gets a much shorter window:
@@ -110,6 +117,9 @@ export function createInjector(o: Options, log: Logger): Injector {
       if (!r.ok) entry.ttl = FAILURE_TTL_MS
       return r.block
     })
+    // Re-inserting an expired key moves it to the recent end too, so refreshing
+    // it does not leave it near the eviction edge.
+    cache.delete(query)
     cache.set(query, entry)
     mapCap(cache, CACHE_MAX)
     return entry.block

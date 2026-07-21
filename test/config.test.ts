@@ -143,3 +143,36 @@ describe("wings that lost characters to the slug", () => {
     expect(resolveOptions({}, "/home/u/x/api_v2").wing).toBe("api_v2")
   })
 })
+
+describe("unicode-equivalent names share a wing", () => {
+  test("the two spellings of an accented name do not split the wing", () => {
+    // Filesystems disagree on normalization: the same "café" comes back as one
+    // code point (NFC, é = U+00E9) from most, or as "e" + a combining accent
+    // (NFD) from others. Untouched, the two spell different slugs — and worse,
+    // the accent is a letter in NFC but a combining mark in NFD, so one path
+    // keeps a digest and the other does not.
+    const nfc = "café".normalize("NFC")
+    const nfd = "café".normalize("NFD")
+    expect(nfc).not.toBe(nfd)
+    expect(slugifyWing(nfc)).toBe(slugifyWing(nfd))
+    expect(resolveOptions({}, "/home/u/" + nfc).wing).toBe(resolveOptions({}, "/home/u/" + nfd).wing)
+  })
+
+  test("a pinned wing is normalized the same way", () => {
+    expect(resolveOptions({ wing: "café".normalize("NFC") }, "/p/x").wing).toBe(
+      resolveOptions({ wing: "café".normalize("NFD") }, "/p/x").wing,
+    )
+  })
+})
+
+describe("injectMaxChars is bounded above", () => {
+  test("an absurd size is clamped, a large-but-sane one passes, junk falls back", () => {
+    // Nothing capped this before: injectMaxChars is the size of a block pasted
+    // into the system prompt of every LLM step, so a value like 1e9 would bloat
+    // every request instead of being ignored as junk.
+    expect(resolveOptions({ injectMaxChars: 1e9 }, "/p/x").injectMaxChars).toBe(100_000)
+    expect(resolveOptions({ injectMaxChars: 50_000 }, "/p/x").injectMaxChars).toBe(50_000)
+    expect(resolveOptions({ injectMaxChars: -5 }, "/p/x").injectMaxChars).toBe(6000)
+    expect(resolveOptions(undefined, "/p/x").injectMaxChars).toBe(6000)
+  })
+})

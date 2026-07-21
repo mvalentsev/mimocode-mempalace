@@ -68,6 +68,14 @@ const count = (v: unknown, fallback: number) => {
   return Number.isFinite(n) && n >= 1 && n < 1e6 ? Math.floor(n) : fallback
 }
 
+/**
+ * A size that is pasted into the system prompt of every LLM step. `num` already
+ * rejects junk and non-positive values; this also clamps the top, so an absurd
+ * setting bloats no request while a large-but-deliberate one is honored.
+ * Callers keep fallback <= max, so junk input still resolves to the fallback.
+ */
+const capped = (v: unknown, fallback: number, max: number) => Math.min(num(v, fallback), max)
+
 /** FNV-1a, base36: enough to tell two names apart, short enough to read. */
 const digest = (raw: string) => {
   let h = 0x811c9dc5
@@ -89,7 +97,13 @@ export function legacyWing(raw: string) {
 
 /** Wing names stay within mempalace slug conventions: lowercase, [a-z0-9_-]. */
 export function slugifyWing(raw: string) {
-  const slug = raw
+  // A filesystem may hand back "café" as one code point (NFC) or as "e" + a
+  // combining accent (NFD); normalizing first keeps the two spellings in one
+  // wing instead of two. It matters twice over here: the accent is a letter in
+  // NFC but a combining mark in NFD, so without this the "lost a character"
+  // test below fires for one spelling and not the other.
+  const name = raw.normalize("NFC")
+  const slug = name
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -99,9 +113,9 @@ export function slugifyWing(raw: string) {
   // a digest of the original name is appended - or becomes the wing when
   // nothing at all survived. A name that was only separators has nothing to
   // distinguish and stays in the shared bucket.
-  const lost = /[\p{L}\p{N}]/u.test(raw.replace(/[a-zA-Z0-9_-]+/g, ""))
+  const lost = /[\p{L}\p{N}]/u.test(name.replace(/[a-zA-Z0-9_-]+/g, ""))
   if (!lost) return slug || "unsorted"
-  return slug ? `${slug}-${digest(raw)}` : `w-${digest(raw)}`
+  return slug ? `${slug}-${digest(name)}` : `w-${digest(name)}`
 }
 
 export function resolveOptions(raw: Record<string, unknown> | undefined, projectDir: string): Options {
@@ -133,7 +147,7 @@ export function resolveOptions(raw: Record<string, unknown> | undefined, project
     inject: bool(o.inject, true),
     identityFile,
     injectResults: count(o.injectResults, 5),
-    injectMaxChars: num(o.injectMaxChars, 6000),
+    injectMaxChars: capped(o.injectMaxChars, 6000, 100_000),
     searchTimeoutMs: num(o.searchTimeoutMs, 10000),
     mineDebounceMs: num(o.mineDebounceMs, 3000),
     mineTimeoutMs: num(o.mineTimeoutMs, 120000),
