@@ -190,7 +190,7 @@ Setup used two of these — `palace` and `log`; everything else tunes a default.
 | `inject` | `true` | Retrieve and inject memories |
 | `identityFile` | `~/.local/share/mimocode-mempalace/identity.md` | Markdown prepended to every injected block; missing file means no identity section; `false` disables. It is one global file injected in every project, so keep it about you, not about the project of the day |
 | `injectResults` | `5` | Search results per injection |
-| `injectMaxChars` | `6000` | Cap on the injected block size |
+| `injectMaxChars` | `6000` | Cap on the injected block size (clamped to 100000, so an extreme value cannot bloat the prompt) |
 | `searchTimeoutMs` | `10000` | Search budget per query; on timeout the turn simply runs without memories |
 | `mineDebounceMs` | `3000` | Quiet window before captured exchanges are mined in one batch |
 | `mineTimeoutMs` | `120000` | Mine run budget |
