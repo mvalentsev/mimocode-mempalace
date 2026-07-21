@@ -169,7 +169,7 @@ rm -rf ~/.cache/mimocode/packages/mimocode-mempalace@latest   # then restart MiM
 or pin the version you want in the config, which installs into its own cache entry:
 
 ```json
-{ "plugin": [["mimocode-mempalace@0.3.0", { "palace": "~/mimo-memory" }]] }
+{ "plugin": [["mimocode-mempalace@0.3.2", { "palace": "~/mimo-memory" }]] }
 ```
 
 `ready: MemPalace X.Y.Z, ...` in the log confirms the restart picked the plugin up; the npm page shows the current version.
