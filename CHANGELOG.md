@@ -2,6 +2,16 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.3.2] — 2026-07-21
+
+Three long-standing rough edges, each pinned by a test that fails when the fix is reverted. Nothing else changes.
+
+### Fixed
+
+- **The search cache evicted by insertion order, not use.** A query re-issued on every step of a long turn was dropped as the "oldest" entry while one asked once and never again survived, so the memory most in demand was the one paying for a fresh search. The cache is least-recently-used now: a hit moves its entry to the recent end, and only a genuinely cold entry is evicted when the cache is full.
+- **The two spellings of an accented project name split its wing.** A filesystem may hand back "café" as one code point (NFC) or as "e" plus a combining accent (NFD); untouched, the two slugged to different wings — and since the accent is a letter in one form and a combining mark in the other, one path kept a digest and the other did not. The name is normalized to NFC before slugging, so both spellings share one wing. One-time move: on a filesystem that stores names decomposed (NFD, e.g. legacy macOS or some network volumes), an auto-wing mixing such an accent with other non-ASCII text (`café-项目`) lands in a different wing than it did in 0.3.1; its earlier exchanges stay on disk and remain reachable with `searchScope: "palace"`, or by re-mining that directory.
+- **`injectMaxChars` had no upper bound.** `num` rejected junk and non-positive values but passed any positive one, so `injectMaxChars: 1e9` would paste the entire search result into the system prompt on every step. It is clamped to 100,000 characters; a large-but-deliberate value below that is still honored.
+
 ## [0.3.1] — 2026-07-20
 
 A review of what 0.3.0 shipped found that two of its headline fixes did not hold and two more were regressions. Those come first.
