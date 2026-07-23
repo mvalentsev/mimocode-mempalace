@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "mimocode-mempalace",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "MemPalace long-term memory for MiMoCode: captures every completed turn into a semantic memory palace and injects relevant memories back into the system prompt",
   "type": "module",
   "license": "MIT",
@@ -42,7 +42,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@mimo-ai/plugin": "0.1.6",
+    "@mimo-ai/plugin": "0.1.8",
     "@types/bun": "^1.2.0",
     "typescript": "^7.0.2"
   }

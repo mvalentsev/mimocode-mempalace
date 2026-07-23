@@ -91,7 +91,7 @@ Subagent slices (checkpoint writers, reviewers, title generators) are not captur
 
 ## Setup
 
-1. Install MemPalace (the plugin needs MiMoCode 0.1.6 or later):
+1. Install MemPalace (the plugin needs MiMoCode 0.1.8 or later):
 
 ```bash
 uv tool install "mempalace>=3.6.0"

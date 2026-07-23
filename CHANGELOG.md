@@ -2,6 +2,14 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.3.3] — 2026-07-23
+
+Maintenance release; no code changes.
+
+### Changed
+
+- **The plugin now targets MiMoCode 0.1.8.** `@mimo-ai/plugin` moves to 0.1.8 — the host the plugin is developed and tested against — and the README asks for 0.1.8 or later. The plugin's own code is untouched: the only change to the SDK's hook surface since 0.1.6 is a new read-only `session.llm.request` hook this plugin does not use, so the three it relies on — `chat.message`, `experimental.chat.system.transform`, and `session.post` — are unchanged. Typecheck and all 106 tests pass against 0.1.8.
+
 ## [0.3.2] — 2026-07-21
 
 Three long-standing rough edges, each pinned by a test that fails when the fix is reverted. Nothing else changes.
@@ -135,6 +143,8 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.3.3]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.3
+[0.3.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.2
 [0.3.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.1
 [0.3.0]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.0
 [0.2.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.2.2
