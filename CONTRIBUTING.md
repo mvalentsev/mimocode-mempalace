@@ -28,4 +28,4 @@ The first e2e run is slow (it warms the embedder); later runs are much faster.
 
 ## Reporting bugs
 
-Set `"log": true` in the plugin options, reproduce once, and attach the relevant `plugin.log` lines to the issue — they usually pinpoint the problem. Palace, mining, and search internals belong upstream in [MemPalace](https://github.com/MemPalace/mempalace/issues); host-side hook behavior belongs in [MiMoCode](https://github.com/XiaomiMiMo/MiMo-Code/issues).
+The log is on by default; reproduce once and attach the relevant lines from `~/.local/share/mimocode-mempalace/plugin.log` to the issue — they usually pinpoint the problem. Palace, mining, and search internals belong upstream in [MemPalace](https://github.com/MemPalace/mempalace/issues); host-side hook behavior belongs in [MiMoCode](https://github.com/XiaomiMiMo/MiMo-Code/issues).

@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml"><img src="https://github.com/mvalentsev/mimocode-mempalace/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.npmjs.com/package/mimocode-mempalace"><img src="https://img.shields.io/npm/v/mimocode-mempalace" alt="npm version"></a>
-  <a href="https://github.com/XiaomiMiMo/MiMo-Code"><img src="https://img.shields.io/badge/MiMoCode-%E2%89%A50.1.6-8250df" alt="MiMoCode 0.1.6 or later"></a>
+  <a href="https://github.com/XiaomiMiMo/MiMo-Code"><img src="https://img.shields.io/badge/MiMoCode-%E2%89%A50.1.9-8250df" alt="MiMoCode 0.1.9 or later"></a>
   <a href="https://github.com/MemPalace/mempalace"><img src="https://img.shields.io/badge/MemPalace-%E2%89%A53.6.0-8250df" alt="MemPalace 3.6.0 or later"></a>
   <img src="https://img.shields.io/badge/runtime_deps-0-2ea44f" alt="zero runtime dependencies">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
@@ -87,11 +87,11 @@ Read side:
   </picture>
 </p>
 
-Subagent slices (checkpoint writers, reviewers, title generators) are not captured, only the main loop. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
+Only the main loop takes part. Subagent slices (checkpoint writers, reviewers, title generators) and MiMoCode's own maintenance passes are neither captured nor given memories — `agents` decides who is followed. If mempalace is missing or the palace is unreachable, the plugin logs what happened and stays out of the way; your session works as if it were not installed.
 
 ## Setup
 
-1. Install MemPalace (the plugin needs MiMoCode 0.1.8 or later):
+1. Install MemPalace (the plugin needs MiMoCode 0.1.9 or later):
 
 ```bash
 uv tool install "mempalace>=3.6.0"
@@ -169,7 +169,7 @@ rm -rf ~/.cache/mimocode/packages/mimocode-mempalace@latest   # then restart MiM
 or pin the version you want in the config, which installs into its own cache entry:
 
 ```json
-{ "plugin": [["mimocode-mempalace@0.3.2", { "palace": "~/mimo-memory" }]] }
+{ "plugin": [["mimocode-mempalace@0.3.3", { "palace": "~/mimo-memory" }]] }
 ```
 
 `ready: MemPalace X.Y.Z, ...` in the log confirms the restart picked the plugin up; the npm page shows the current version.
@@ -196,9 +196,9 @@ Setup used two of these — `palace` and `log`; everything else tunes a default.
 | `mineTimeoutMs` | `120000` | Mine run budget |
 | `mineAgent` | `"mimocode"` | Agent name mempalace records on every mined drawer |
 | `backfill` | `false` | Import past MiMoCode sessions once: `true` for all, a number for the N most recent (see below) |
-| `mimoDb` | `~/.local/share/mimocode/mimocode.db` | MiMoCode's SQLite database, read by `backfill` |
+| `mimoDb` | `~/.local/share/mimocode/mimocode.db` | MiMoCode's SQLite database, read by `backfill`; follows `MIMOCODE_HOME` when that is set |
 | `exportsDir` | `~/.local/share/mimocode-mempalace/exchanges` | Where exchange transcripts are kept |
-| `agents` | `["main"]` | Agent slices to capture |
+| `agents` | `["main"]` | Agents the plugin follows: turns from any other agent — subagents, and MiMoCode's own "Auto Dream" and "Auto Distill" passes — are neither captured nor given memories |
 | `log` | `true` | Logs to `~/.local/share/mimocode-mempalace/plugin.log`; a string sets a custom path, `false` turns it off |
 
 ## Import your past sessions
@@ -260,7 +260,7 @@ The log is on by default: read `~/.local/share/mimocode-mempalace/plugin.log` (`
 
 - `ready: MemPalace X.Y.Z, palace=..., wing=...` means the plugin found everything.
 - The log file does not exist at all: the plugin never ran.
-  - Check that MiMoCode is 0.1.6 or later, and give the very first start time to finish downloading the package.
+  - Check that MiMoCode is 0.1.9 or later, and give the very first start time to finish downloading the package.
   - Make sure the `plugin` entry sits in a config MiMoCode actually reads (`~/.config/mimocode/mimocode.json`, or `.mimocode/mimocode.json` of the project you launched it in).
   - A broken or empty `mimocode-mempalace@latest` folder under `~/.cache/mimocode/packages/` blocks the install from being retried — delete that folder and restart.
   - When in doubt, read MiMoCode's own log — the newest file in `~/.local/share/mimocode/log/`. `service=plugin` lines show the plugin being picked up (`loading plugin`) or the exact install error (`failed to install plugin`, usually the road to registry.npmjs.org). No `service=plugin` lines at all means MiMoCode never picked the plugin up from that config — run `env | grep -iE 'mimocode|xdg'` and look for `MIMOCODE_HOME` (relocates every path, config included) or `MIMOCODE_PURE` (turns off external plugins).
