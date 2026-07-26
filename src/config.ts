@@ -52,7 +52,18 @@ const dataHome = () => process.env.XDG_DATA_HOME || path.join(os.homedir(), ".lo
 
 export const defaultDataDir = () => path.join(dataHome(), "mimocode-mempalace")
 
-export const defaultMimoDb = () => path.join(dataHome(), "mimocode", "mimocode.db")
+/**
+ * MiMoCode's own database. `MIMOCODE_HOME` moves every host directory (config,
+ * data, cache, state) under that root, so on a profile-isolated instance the
+ * database is not where XDG would put it and backfill finds nothing to import.
+ * A relative value is refused by the host itself; XDG is the better guess than
+ * a relative path.
+ */
+export const defaultMimoDb = () => {
+  const home = process.env.MIMOCODE_HOME
+  if (home && path.isAbsolute(home)) return path.join(home, "data", "mimocode.db")
+  return path.join(dataHome(), "mimocode", "mimocode.db")
+}
 
 const expandHome = (p: string) => (p === "~" || p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p)
 

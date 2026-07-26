@@ -165,6 +165,36 @@ describe("unicode-equivalent names share a wing", () => {
   })
 })
 
+describe("MIMOCODE_HOME moves the host's database", () => {
+  test("the backfill default follows the host, an explicit path still wins", () => {
+    // MiMoCode resolves its config, data, cache and state as subdirectories of
+    // MIMOCODE_HOME whenever it is set, so its session database is not under
+    // XDG then — and backfill looking there finds nothing to import.
+    const saved = process.env.MIMOCODE_HOME
+    const xdgDefault = (db: string) => db.endsWith(path.join("mimocode", "mimocode.db"))
+    try {
+      process.env.MIMOCODE_HOME = "/tmp/profile-a"
+      expect(resolveOptions(undefined, "/p/x").mimoDb).toBe(path.join("/tmp/profile-a", "data", "mimocode.db"))
+      expect(resolveOptions({ mimoDb: "~/elsewhere.db" }, "/p/x").mimoDb).toBe(
+        path.join(os.homedir(), "elsewhere.db"),
+      )
+
+      // The host refuses to start on a relative or empty home; falling back to
+      // the XDG path beats inventing a relative one.
+      process.env.MIMOCODE_HOME = "profiles/a"
+      expect(xdgDefault(resolveOptions(undefined, "/p/x").mimoDb)).toBe(true)
+      process.env.MIMOCODE_HOME = ""
+      expect(xdgDefault(resolveOptions(undefined, "/p/x").mimoDb)).toBe(true)
+
+      delete process.env.MIMOCODE_HOME
+      expect(xdgDefault(resolveOptions(undefined, "/p/x").mimoDb)).toBe(true)
+    } finally {
+      if (saved === undefined) delete process.env.MIMOCODE_HOME
+      else process.env.MIMOCODE_HOME = saved
+    }
+  })
+})
+
 describe("injectMaxChars is bounded above", () => {
   test("an absurd size is clamped, a large-but-sane one passes, junk falls back", () => {
     // Nothing capped this before: injectMaxChars is the size of a block pasted
