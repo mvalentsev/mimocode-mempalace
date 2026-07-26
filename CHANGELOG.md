@@ -2,6 +2,18 @@
 
 Notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.3.4] — 2026-07-27
+
+### Fixed
+
+- **Memories were injected into MiMoCode's own maintenance passes.** The host prompts more loops than the one you are talking to: subagents, and the sessions it spawns for itself — "Auto Dream" and "Auto Distill", run as agents `dream` and `distill`, whose job is to consolidate durable facts into the host's memory files. Their task text became a search query (two searches, each up to `searchTimeoutMs`, on the start that triggers them), and this plugin's block — announced as "verbatim excerpts from past sessions" — landed in the system prompt of the very pass that decides what to write down, which is how excerpts of old sessions get copied into MEMORY.md. `chat.message` names the agent, so only the agents in `agents` are answered now; that is the same list that has always decided what gets captured. A host that names no agent keeps the old behavior, and a project that wants its subagents to have memories can list them.
+- **`backfill` looked in the wrong place when `MIMOCODE_HOME` was set.** That variable moves every MiMoCode directory — config, data, cache, state — under one root, so the session database is not where XDG would put it; the default `mimoDb` still pointed at `~/.local/share/mimocode/mimocode.db` and the import found nothing to do. It now follows the host, exactly as the host resolves it, and still falls back to the XDG path for a value the host itself would refuse (relative or empty).
+
+### Changed
+
+- **The plugin now targets MiMoCode 0.1.9.** `@mimo-ai/plugin` moves to 0.1.9 — the host the plugin is developed and tested against — and the README asks for 0.1.9 or later. The SDK's type surface did not move at all: every `dist/*.d.ts` in 0.1.9 is byte-identical to 0.1.8, so the three hooks this plugin relies on are unchanged, and 0.1.9 itself is a TUI, provider and plan-mode release. Typecheck and the whole suite pass against it, and a live 0.1.9 run logs `ready`, the search, and `injected 439 chars into system`.
+- The MiMoCode version badge and the Troubleshooting checklist still said 0.1.6 after 0.3.3 raised the requirement, and the bug report template asked for the log to be switched on, which it has been by default since 0.3.0.
+
 ## [0.3.3] — 2026-07-23
 
 Maintenance release; no code changes.
@@ -143,6 +155,7 @@ First public release.
 - **Version gate**: on MemPalace older than 3.3.5 the plugin logs `plugin disabled` and neither reads nor writes; with no `mempalace` binary at all it logs once and stays a no-op.
 - **Options**: `palace`, `bin`, `wing`, `searchScope`, `captureMode`, `cleanupAfterMine`, `capture`, `inject`, `identityFile`, `injectResults`, `injectMaxChars`, `searchTimeoutMs`, `mineDebounceMs`, `mineTimeoutMs`, `mineAgent`, `backfill`, `mimoDb`, `exportsDir`, `agents`, `log`.
 
+[0.3.4]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.4
 [0.3.3]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.3
 [0.3.2]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.2
 [0.3.1]: https://github.com/mvalentsev/mimocode-mempalace/releases/tag/v0.3.1
