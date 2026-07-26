@@ -24,6 +24,9 @@
   <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
+> [!NOTE]
+> **Not in active development.** 0.3.4 is verified against MiMoCode 0.1.9 and MemPalace 3.6.0 (2026-07-27) and works — it is the release to use. I no longer run MiMoCode day to day, so further versions would not get the field testing this plugin was built on.
+
 Long-term memory for [MiMoCode](https://github.com/XiaomiMiMo/MiMo-Code), backed by [MemPalace](https://github.com/MemPalace/mempalace).
 
 MiMoCode ships a solid file-based project memory (MEMORY.md, checkpoints, FTS5 search). This plugin adds the other half: a semantic memory that spans all your sessions and projects. Every completed turn is saved into a MemPalace "palace", and on each new request the most relevant past exchanges are retrieved by meaning, not just keywords, and placed into the system prompt. The model doesn't have to remember to search; the plugin does it for it.
