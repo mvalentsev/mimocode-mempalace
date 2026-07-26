@@ -30,8 +30,10 @@ const mapCap = <K, V>(map: Map<K, V>, max: number) => {
   }
 }
 
+export type ChatMessageInput = { sessionID?: string; agent?: string }
+
 export type Injector = {
-  onChatMessage: (sessionID: string | undefined, output: ChatMessageOutput) => void
+  onChatMessage: (input: ChatMessageInput, output: ChatMessageOutput) => void
   onSystemTransform: (sessionID: string | undefined, output: { system: string[] }) => Promise<void>
 }
 
@@ -73,6 +75,8 @@ export function createInjector(o: Options, log: Logger): Injector {
 
   let notedEmptyPalace = false
   let notedNoSession = false
+  /** Agents skipped for injection, so the log says it once per agent, not per turn. */
+  const notedAgents = new Set<string>()
 
   const runSearch = async (query: string): Promise<{ block: string; ok: boolean }> => {
     const res = await run(o.bin, searchArgs(o, query), o.searchTimeoutMs)
@@ -126,8 +130,22 @@ export function createInjector(o: Options, log: Logger): Injector {
   }
 
   return {
-    onChatMessage: (sessionID, output) => {
+    onChatMessage: ({ sessionID, agent }, output) => {
       if (!sessionID) return
+      // The host prompts more than the loop the user is talking to: subagents,
+      // and its own maintenance passes ("Auto Dream", "Auto Distill", run as
+      // agents "dream" and "distill") whose job is to write its memory files.
+      // Their task text is nobody's question, and answering it with excerpts of
+      // past sessions both costs a search and invites those excerpts into the
+      // host's own memory. Only the agents this plugin follows are answered;
+      // a host that names no agent keeps the old behavior.
+      if (agent !== undefined && !o.agents.includes(agent)) {
+        if (!notedAgents.has(agent)) {
+          log(`not injecting into agent "${agent}" turns (agents: [${o.agents.join(", ")}])`)
+          notedAgents.add(agent)
+        }
+        return
+      }
       const text = (output.parts ?? [])
         .filter((p) => p.type === "text" && !p.synthetic && typeof p.text === "string" && p.text.trim())
         .map((p) => p.text!.trim())

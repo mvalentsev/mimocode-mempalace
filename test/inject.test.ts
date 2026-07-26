@@ -29,7 +29,7 @@ describe("createInjector", () => {
     const o = resolveOptions({ bin: f.bin, identityFile: identity, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
 
-    inj.onChatMessage("s1", userMessage("how is retry configured?"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("how is retry configured?"))
     const out = { system: [] as string[] }
     await inj.onSystemTransform("s1", out)
 
@@ -54,7 +54,7 @@ describe("createInjector", () => {
     const f = await fakeSearchBin(`echo "hit" >> "${counter}"\ncat <<'EOF'\n${RESULT}\nEOF`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
-    inj.onChatMessage("s1", userMessage("same question"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("same question"))
     await inj.onSystemTransform("s1", { system: [] })
     await inj.onSystemTransform("s1", { system: [] })
     await inj.onSystemTransform("s1", { system: [] })
@@ -66,7 +66,7 @@ describe("createInjector", () => {
     const f = await fakeSearchBin(`exit 3`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
-    inj.onChatMessage("s1", userMessage("anything"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("anything"))
     const out = { system: [] as string[] }
     await inj.onSystemTransform("s1", out)
     expect(out.system).toEqual([])
@@ -77,7 +77,7 @@ describe("createInjector", () => {
     const f = await fakeSearchBin(`echo "hit" >> "${counter}"\nsleep 0.3\ncat <<'EOF'\n${RESULT}\nEOF`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
-    inj.onChatMessage("s1", userMessage("same question"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("same question"))
     const a = { system: [] as string[] }
     const b = { system: [] as string[] }
     await Promise.all([inj.onSystemTransform("s1", a), inj.onSystemTransform("s1", b)])
@@ -92,7 +92,7 @@ describe("createInjector", () => {
     const f = await fakeSearchBin(`echo "hit" >> "${counter}"\nsleep 0.2\nexit 3`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
-    inj.onChatMessage("s1", userMessage("same question"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("same question"))
     // The many LLM steps of one turn overlap and must cost one spawn...
     await Promise.all([inj.onSystemTransform("s1", { system: [] }), inj.onSystemTransform("s1", { system: [] })])
     expect((await Bun.file(counter).text()).trim().split("\n").length).toBe(1)
@@ -110,7 +110,7 @@ describe("createInjector", () => {
     const f = await fakeSearchBin(`echo`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
-    inj.onChatMessage("s1", { parts: [{ type: "text", text: "reminder", synthetic: true }] })
+    inj.onChatMessage({ sessionID: "s1" }, { parts: [{ type: "text", text: "reminder", synthetic: true }] })
     const out = { system: [] as string[] }
     await inj.onSystemTransform("s1", out)
     expect(out.system).toEqual([])
@@ -123,7 +123,7 @@ describe("trimQuery via onChatMessage", () => {
     const f = await fakeSearchBin(`printf '%s' "$4" > "${counter}"\ncat <<'EOF2'\n${RESULT}\nEOF2`)
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
-    inj.onChatMessage("s1", userMessage("intent words " + "x".repeat(5000)))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("intent words " + "x".repeat(5000)))
     await inj.onSystemTransform("s1", { system: [] })
     const sent = await Bun.file(counter).text()
     expect(sent.length).toBeLessThanOrEqual(600)
@@ -142,7 +142,7 @@ describe("failures and stale queries", () => {
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
 
-    inj.onChatMessage("s1", userMessage("how is retry configured?"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("how is retry configured?"))
     const first = { system: [] as string[] }
     await inj.onSystemTransform("s1", first)
     expect(first.system).toEqual([])
@@ -157,7 +157,7 @@ describe("failures and stale queries", () => {
     // ...but it expires quickly, so the next turn retries instead of staying
     // blind for the full result TTL.
     await Bun.sleep(3200)
-    inj.onChatMessage("s2", userMessage("how is retry configured?"))
+    inj.onChatMessage({ sessionID: "s2" }, userMessage("how is retry configured?"))
     const second = { system: [] as string[] }
     await inj.onSystemTransform("s2", second)
     expect(second.system[0]).toContain("payments.yaml")
@@ -168,8 +168,8 @@ describe("failures and stale queries", () => {
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
 
-    inj.onChatMessage("s1", userMessage("how is retry configured?"))
-    inj.onChatMessage("s1", { parts: [{ type: "image", text: "" }] } as never)
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("how is retry configured?"))
+    inj.onChatMessage({ sessionID: "s1" }, { parts: [{ type: "image", text: "" }] } as never)
     const out = { system: [] as string[] }
     await inj.onSystemTransform("s1", out)
     expect(out.system).toEqual([])
@@ -180,9 +180,62 @@ describe("failures and stale queries", () => {
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const logs: string[] = []
     const inj = createInjector(o, (m) => logs.push(m))
-    inj.onChatMessage("s1", userMessage("anything?"))
+    inj.onChatMessage({ sessionID: "s1" }, userMessage("anything?"))
     await inj.onSystemTransform("s1", { system: [] as string[] })
     expect(logs.some((l) => l.includes("no results"))).toBe(true)
+  })
+})
+
+describe("only the agents the plugin follows get memories", () => {
+  const spawnCounter = async () => path.join(await mkdtemp(path.join(os.tmpdir(), "mm-agent-")), "hits.txt")
+
+  test("a turn from another agent is neither searched for nor injected into", async () => {
+    // MiMoCode runs its own maintenance passes as sessions of their own —
+    // "Auto Dream" and "Auto Distill", spawned with agent "dream"/"distill" —
+    // whose job is to write the host's memory files. Their task text used to
+    // become a search query, and this plugin's block landed in the prompt of
+    // the very pass that consolidates facts, which is how excerpts of past
+    // sessions end up copied into MEMORY.md. Subagents cost a search each too.
+    const counter = await spawnCounter()
+    const f = await fakeSearchBin(`echo "hit" >> "${counter}"\ncat <<'EOF'\n${RESULT}\nEOF`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const logs: string[] = []
+    const inj = createInjector(o, (m) => logs.push(m))
+
+    inj.onChatMessage({ sessionID: "s-dream", agent: "dream" }, userMessage("Run one automatic dream pass"))
+    const out = { system: [] as string[] }
+    await inj.onSystemTransform("s-dream", out)
+
+    expect(out.system).toEqual([])
+    expect(await Bun.file(counter).exists()).toBe(false)
+    expect(logs.some((l) => l.includes("dream"))).toBe(true)
+  })
+
+  test("the main loop is unaffected, and a host that names no agent still gets memories", async () => {
+    const f = await fakeSearchBin(`cat <<'EOF'\n${RESULT}\nEOF`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
+    const inj = createInjector(o, () => {})
+
+    inj.onChatMessage({ sessionID: "s-main", agent: "main" }, userMessage("how is retry configured?"))
+    const main = { system: [] as string[] }
+    await inj.onSystemTransform("s-main", main)
+    expect(main.system[0]).toContain("payments.yaml")
+
+    inj.onChatMessage({ sessionID: "s-old" }, userMessage("how is retry configured?"))
+    const old = { system: [] as string[] }
+    await inj.onSystemTransform("s-old", old)
+    expect(old.system[0]).toContain("payments.yaml")
+  })
+
+  test("the agents option decides, so a project can opt its subagents back in", async () => {
+    const f = await fakeSearchBin(`cat <<'EOF'\n${RESULT}\nEOF`)
+    const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w", agents: ["main", "reviewer"] }, "/p/x")
+    const inj = createInjector(o, () => {})
+
+    inj.onChatMessage({ sessionID: "s-rev", agent: "reviewer" }, userMessage("how is retry configured?"))
+    const out = { system: [] as string[] }
+    await inj.onSystemTransform("s-rev", out)
+    expect(out.system[0]).toContain("payments.yaml")
   })
 })
 
@@ -196,7 +249,7 @@ describe("cache eviction is least-recently-used", () => {
     const o = resolveOptions({ bin: f.bin, identityFile: false, wing: "w" }, "/p/x")
     const inj = createInjector(o, () => {})
     const ask = async (q: string) => {
-      inj.onChatMessage("s1", userMessage(q))
+      inj.onChatMessage({ sessionID: "s1" }, userMessage(q))
       await inj.onSystemTransform("s1", { system: [] })
     }
     const spawns = async () => (await Bun.file(counter).text()).trim().split("\n").length

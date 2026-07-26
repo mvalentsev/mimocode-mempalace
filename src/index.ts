@@ -84,7 +84,7 @@ export const server: Plugin = async (input, options) => {
     "chat.message": async (hookInput, output) => {
       if (!o.inject) return
       try {
-        injector.onChatMessage(hookInput.sessionID, output)
+        injector.onChatMessage(hookInput, output)
       } catch (e) {
         log(`chat.message hook error: ${e}`)
       }
